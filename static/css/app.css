@@ -1,23 +1,27 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --sea:        #0C1822;
-  --sea-line:   #13232F;
-  --land:       #172633;
-  --land-hi:    #1D3040;
-  --land-edge:  #253A4A;
-  --coast:      #3A5870;
+  /* JSW Infrastructure: navy #33559E, red #D7373A, sky #36C3FF */
+  --sea:        #08122A;
+  --sea-line:   #0F1C38;
+  --land:       #12223F;
+  --land-hi:    #1B3158;
+  --land-far:   #0E1B33;
+  --land-edge:  #263C66;
+  --coast:      #3A5A96;
 
-  --arc:        #6CC4F2;
-  --port:       #F5B841;
-  --ho:         #E9EEF2;
+  --arc:        #6F92E0;
+  --port:       #36C3FF;
+  --port-hi:    #8FDDFF;
+  --ho:         #E8EEF8;
+  --brand-red:  #D7373A;
 
-  --surface:    #101E29;
-  --surface-2:  #16283A;
-  --rule:       #22384A;
-  --text:       #E4ECF1;
-  --text-2:     #A9B9C5;
-  --text-3:     #74899A;
+  --surface:    #0D1A33;
+  --surface-2:  #15264A;
+  --rule:       #22365E;
+  --text:       #E6ECF5;
+  --text-2:     #A7B6CF;
+  --text-3:     #7186A6;
 
   --good:       #5CCB9C;
   --short:      #EF8A63;
@@ -26,7 +30,7 @@
   --font:       'Barlow', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-fig:   'Barlow Condensed', 'Arial Narrow', 'Segoe UI', sans-serif;
 
-  --panel-w:    440px;
+  --panel-w:    50vw;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
@@ -48,18 +52,19 @@ button { font: inherit; color: inherit; }
 
 /* ── Map ───────────────────────────────────────────── */
 #stage { position: fixed; inset: 0; }
-#map { width: 100%; height: 100%; display: block; cursor: grab; }
-#map:active { cursor: grabbing; }
+#map { width: 100%; height: 100%; display: block; }
 
 .graticule { fill: none; stroke: var(--sea-line); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .land { fill: var(--land); }
 .land.home { fill: var(--land-hi); }
+.land.foreign { fill: var(--land-far); stroke: var(--land-edge); stroke-width: .6; vector-effect: non-scaling-stroke; }
 .state-borders { fill: none; stroke: var(--land-edge); stroke-width: .8; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
 .coastline { fill: none; stroke: var(--coast); stroke-width: 1.1; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
 
 .arc { fill: none; stroke: var(--arc); stroke-linecap: round; }
 .arc.strand { stroke-width: 1; opacity: .28; }
 .arc.main { stroke-width: 2; opacity: .9; }
+.arc.dev { stroke-dasharray: 3 5; opacity: .35; }
 .arc.flow {
   stroke-width: 2; opacity: .95;
   stroke-dasharray: 2 14;
@@ -68,15 +73,15 @@ button { font: inherit; color: inherit; }
 @keyframes flow { to { stroke-dashoffset: -16; } }
 .arc-spark { fill: #fff; filter: drop-shadow(0 0 4px var(--arc)); }
 
-.sea-label { fill: #3B5569; font-size: 14px; font-style: italic; letter-spacing: .12em; pointer-events: none; }
+.sea-label { fill: #34507F; font-size: 14px; font-style: italic; letter-spacing: .12em; pointer-events: none; }
 .place circle { fill: var(--text-3); }
 .place text {
   fill: var(--text-3); font-size: 12px;
   paint-order: stroke; stroke: var(--sea); stroke-width: 3px;
 }
 
-.ho-mark rect { fill: var(--ho); }
-.ho-mark .halo { fill: none; stroke: var(--ho); stroke-opacity: .35; }
+.ho-mark rect { fill: var(--brand-red); }
+.ho-mark .halo { fill: none; stroke: var(--brand-red); stroke-opacity: .5; }
 .ho-mark text, .port-mark text {
   paint-order: stroke; stroke: var(--sea); stroke-width: 4px; stroke-linejoin: round;
 }
@@ -85,14 +90,17 @@ button { font: inherit; color: inherit; }
 
 .port-mark { cursor: pointer; outline: none; }
 .port-mark .core { fill: var(--port); stroke: var(--sea); stroke-width: 2; }
-.port-mark .ring { fill: none; stroke: var(--port); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: ring 2.6s ease-out infinite; }
+.port-mark .ring { display: none; fill: none; stroke: var(--port); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: ring 2.6s ease-out infinite; }
+.port-mark.live .ring { display: block; }
 .port-mark .hit { fill: transparent; }
 .port-mark .name { fill: var(--port); font-size: 15px; font-weight: 600; }
 .port-mark .sub  { fill: var(--text-2); font-size: 12.5px; }
-.port-mark:hover .core, .port-mark:focus-visible .core, .port-mark.active .core { fill: #FFD27A; }
+.port-mark:hover .core, .port-mark:focus-visible .core, .port-mark.active .core { fill: var(--port-hi); }
 .port-mark:focus-visible .hit { stroke: var(--arc); stroke-width: 2; }
-.port-mark.offline .core { fill: var(--text-3); }
-.port-mark.offline .ring { display: none; }
+.port-mark.dev .core { fill: var(--sea); stroke: var(--text-3); stroke-width: 2; stroke-dasharray: 3 2; }
+.port-mark.dev .name { fill: var(--text-2); }
+/* Map is half size while the panel is open: drop secondary lines to avoid overlaps. */
+body.panel-open .port-mark .sub, body.panel-open .ho-mark .sub { display: none; }
 @keyframes ring {
   0%   { transform: scale(1);   opacity: .9; }
   100% { transform: scale(3.2); opacity: 0; }
@@ -102,6 +110,11 @@ button { font: inherit; color: inherit; }
 .brand {
   position: absolute; top: calc(20px + var(--safe-t)); left: 24px;
   pointer-events: none;
+}
+/* Logo is navy and red, so it sits on a white chip to stay legible on the dark map. */
+.brand-logo {
+  display: block; height: 60px; width: auto; margin-bottom: 14px;
+  background: #fff; padding: 10px 16px; border-radius: 10px;
 }
 .brand h1 {
   font-family: var(--font-fig); font-weight: 600; font-size: 34px;
@@ -118,26 +131,16 @@ body.panel-open .clock { right: calc(var(--panel-w) + 24px); }
 #clock-time { display: block; font-family: var(--font-fig); font-size: 30px; font-weight: 500; line-height: 1; }
 #clock-meta { display: block; color: var(--text-2); font-size: 13px; margin-top: 6px; }
 
-.map-controls {
-  position: absolute; left: 24px; bottom: calc(24px + var(--safe-b));
-  display: flex; gap: 8px;
-}
-.map-controls button {
-  background: rgba(16, 30, 41, .85); border: 1px solid var(--rule);
-  padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 13.5px;
-  backdrop-filter: blur(6px);
-}
-.map-controls button:hover { border-color: var(--coast); }
-
 .legend {
-  position: absolute; left: 24px; bottom: calc(72px + var(--safe-b));
+  position: absolute; left: 24px; bottom: calc(24px + var(--safe-b));
   list-style: none; font-size: 13px; color: var(--text-2);
   display: grid; gap: 6px; pointer-events: none;
 }
 .legend li { display: flex; align-items: center; gap: 10px; }
 .key { display: inline-block; flex: none; }
 .key-port { width: 10px; height: 10px; border-radius: 50%; background: var(--port); }
-.key-ho { width: 8px; height: 8px; background: var(--ho); transform: rotate(45deg); margin: 0 1px; }
+.key-dev { width: 10px; height: 10px; border-radius: 50%; border: 2px dashed var(--text-3); }
+.key-ho { width: 8px; height: 8px; background: var(--brand-red); transform: rotate(45deg); margin: 0 1px; }
 .key-arc { width: 18px; height: 2px; background: var(--arc); border-radius: 2px; margin-left: -4px; }
 
 .map-error {
@@ -165,7 +168,7 @@ body.panel-open .clock { right: calc(var(--panel-w) + 24px); }
 .panel-hero.has-img { height: 200px; }
 .panel-hero.has-img::after {
   content: ''; position: absolute; inset: 0;
-  background: linear-gradient(to top, var(--surface) 4%, rgba(16, 30, 41, .35) 55%, rgba(16, 30, 41, .1));
+  background: linear-gradient(to top, var(--surface) 4%, rgba(13, 26, 51, .35) 55%, rgba(13, 26, 51, .1));
 }
 .panel-hero-text { position: relative; z-index: 1; padding: 20px 24px 4px; }
 .panel-hero h2 { font-family: var(--font-fig); font-size: 32px; font-weight: 600; line-height: 1.05; color: var(--port); }
@@ -173,11 +176,19 @@ body.panel-open .clock { right: calc(var(--panel-w) + 24px); }
 .panel-close {
   position: absolute; top: 14px; right: 14px; z-index: 2;
   width: 34px; height: 34px; border-radius: 50%;
-  background: rgba(12, 24, 34, .75); border: 1px solid var(--rule);
+  background: rgba(8, 18, 42, .75); border: 1px solid var(--rule);
   display: grid; place-items: center; cursor: pointer;
 }
 .panel-close:hover { border-color: var(--coast); }
 .panel-meta { padding: 6px 24px 0; font-size: 13px; color: var(--text-3); }
+.panel-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 24px 0; }
+.panel-tabs button {
+  background: none; border: 1px solid var(--rule); border-radius: 999px;
+  padding: 5px 12px; font-size: 13px; color: var(--text-2); cursor: pointer;
+}
+.panel-tabs button:hover { border-color: var(--coast); }
+.panel-tabs button[aria-pressed="true"] { background: var(--port); border-color: var(--port); color: var(--sea); font-weight: 600; }
+.panel-tabs em { font-style: normal; opacity: .7; }
 
 .panel-body { padding: 8px 24px 32px; }
 .panel-body.loading { opacity: .55; }
@@ -295,7 +306,7 @@ body.panel-open .clock { right: calc(var(--panel-w) + 24px); }
   .brand p { font-size: 13px; max-width: 62vw; }
   body.panel-open .clock { right: 16px; }
   .legend { display: none; }
-  .map-controls { left: 16px; bottom: calc(16px + var(--safe-b)); }
+  .brand-logo { height: 34px; margin-bottom: 10px; }
   .panel {
     top: auto; height: 86%; width: 100%;
     border-left: 0; border-top: 1px solid var(--rule); border-radius: 14px 14px 0 0;

@@ -1,8 +1,8 @@
-/* India map, ports, and the reporting arcs into the head office. */
+/* Fixed map of JSW Infrastructure sites and the reporting arcs into head office. */
 (function () {
   const CFG = window.PORTNET;
   const REFRESH_MS = 5 * 60 * 1000;
-  const REGION_MIN_SPAN = 2.0;          // degrees; keeps "Zoom to ports" from zooming in too far
+  const INDIA_ID = '356';               // world-atlas id; India itself comes from the states file
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const fmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
 
@@ -11,9 +11,8 @@
   const gMap = root.append('g');
   const gOver = svg.append('g');       // screen-space layer: arcs, markers, labels
   const gSeas = gOver.append('g');
-  const gPlaces = gOver.append('g');
   const SEAS = [
-    { name: 'Arabian Sea', lng: 66.5, lat: 15.5 },
+    { name: 'Arabian Sea', lng: 65.5, lat: 15.5 },
     { name: 'Bay of Bengal', lng: 87.5, lat: 15.5 },
   ];
   const gArcs = gOver.append('g');
@@ -21,17 +20,16 @@
 
   const projection = d3.geoMercator();
   const path = d3.geoPath(projection);
-  let india = null, network = null, transform = d3.zoomIdentity, width = 0, height = 0;
+  let india = null, world = null, network = null, sites = [], transform = d3.zoomIdentity, width = 0, height = 0;
   let sparks = [];
 
-  const zoom = d3.zoom()
-    .scaleExtent([0.8, 600])
-    .on('zoom', (e) => {
-      transform = e.transform;
-      gMap.attr('transform', transform);
-      drawOverlay();
-    });
-  svg.call(zoom).on('dblclick.zoom', null);
+  // The zoom behaviour only drives programmatic transitions; it is never bound
+  // to the svg, so users cannot pan or zoom.
+  const zoom = d3.zoom().on('zoom', (e) => {
+    transform = e.transform;
+    gMap.attr('transform', transform);
+    drawOverlay();
+  });
 
   // ── helpers ───────────────────────────────────────────
   const screen = (lng, lat) => transform.apply(projection([lng, lat]));
@@ -54,20 +52,30 @@
       .translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
   }
 
-  function regionBounds() {
+  // Every site plus head office, with room for labels (east) and the header (north).
+  function homeView() {
     const pts = network.ports.map(p => [p.lng, p.lat]).concat([[network.head_office.lng, network.head_office.lat]]);
-    let [lo0, la0, lo1, la1] = [180, 90, -180, -90];
-    pts.forEach(([lo, la]) => { lo0 = Math.min(lo0, lo); lo1 = Math.max(lo1, lo); la0 = Math.min(la0, la); la1 = Math.max(la1, la); });
-    const cx = (lo0 + lo1) / 2, cy = (la0 + la1) / 2;
-    const half = Math.max(lo1 - lo0, la1 - la0, REGION_MIN_SPAN) / 2;
-    return [[cx - half, cy - half], [cx + half, cy + half]];
+    const lng = d3.extent(pts, d => d[0]), lat = d3.extent(pts, d => d[1]);
+    return fitTransform([[lng[0] - 2, lat[0] - 1.5], [lng[1] + 4, lat[1] + 5]], 60);  // extra north: header
   }
-
-  function indiaView() { return fitTransform([[68, 6.5], [97.5, 37.2]], 40); }
-  function portsView() { return fitTransform(regionBounds(), 60); }
 
   function go(t, ms) {
     svg.transition().duration(reduceMotion ? 0 : ms).ease(d3.easeCubicInOut).call(zoom.transform, t);
+  }
+
+  // Terminals sharing a site become one marker, placed at the first one listed.
+  function buildSites() {
+    sites = d3.groups(network.ports, p => p.site).map(([name, ports]) => {
+      const live = ports.filter(p => p.pulse && p.pulse.ok);
+      return {
+        name, ports,
+        lng: ports[0].lng, lat: ports[0].lat,
+        label: ports.length === 1 ? ports[0].name : name,
+        dev: ports.every(p => p.status !== 'Operational'),
+        live: live.length > 0,
+        today: d3.sum(live, p => p.pulse.today),
+      };
+    });
   }
 
   // ── base map ──────────────────────────────────────────
@@ -79,6 +87,13 @@
     gMap.append('path')
       .attr('class', 'graticule')
       .attr('d', path(d3.geoGraticule().step([2, 2]).extent([[30, -20], [130, 60]])()));
+
+    const countries = topojson.feature(world, world.objects.countries).features.filter(f => f.id !== INDIA_ID);
+    gMap.append('g').selectAll('path')
+      .data(countries)
+      .join('path')
+      .attr('class', 'land foreign')
+      .attr('d', path);
 
     const homeStates = new Set(network.ports.map(p => p.state).filter(Boolean));
     gMap.append('g').selectAll('path')
@@ -111,7 +126,6 @@
   function drawOverlay() {
     if (!network) return;
     const ho = screen(network.head_office.lng, network.head_office.lat);
-    const k = transform.k;
 
     gSeas.selectAll('text').data(SEAS).join('text')
       .attr('class', 'sea-label')
@@ -119,26 +133,17 @@
       .attr('transform', d => `translate(${screen(d.lng, d.lat)})`)
       .text(d => d.name);
 
-    // Reference towns, only once zoomed into a region.
-    const places = k > 5 ? network.places : [];
-    const pl = gPlaces.selectAll('g.place').data(places, d => d.name);
-    pl.exit().remove();
-    const plIn = pl.enter().append('g').attr('class', 'place');
-    plIn.append('circle').attr('r', 2);
-    plIn.append('text').attr('x', 6).attr('y', 4).text(d => d.name);
-    plIn.merge(pl).attr('transform', d => `translate(${screen(d.lng, d.lat)})`);
-
-    // Arcs: three strands per port, the middle one carries the flow.
+    // Arcs: three strands per site, the middle one carries the flow.
     sparks = [];
     const arcs = [];
-    network.ports.forEach(p => {
-      const p0 = screen(p.lng, p.lat);
+    sites.forEach(s => {
+      const p0 = screen(s.lng, s.lat);
       [0.28, 0.42, 0.58].forEach((bend, i) => {
         const g = arcGeometry(p0, ho, bend);
-        arcs.push({ key: p.code + i, d: g.d, cls: i === 1 ? 'main' : 'strand' });
-        if (i === 1) {
-          arcs.push({ key: p.code + 'flow', d: g.d, cls: 'flow' });
-          sparks.push({ code: p.code, p0, c: g.c, p1: ho });
+        arcs.push({ key: s.name + i, d: g.d, cls: (i === 1 ? 'main' : 'strand') + (s.dev ? ' dev' : '') });
+        if (i === 1 && !s.dev) {
+          arcs.push({ key: s.name + 'flow', d: g.d, cls: 'flow' });
+          sparks.push({ key: s.name, p0, c: g.c, p1: ho });
         }
       });
     });
@@ -146,7 +151,7 @@
       .join('path')
       .attr('class', d => 'arc ' + d.cls)
       .attr('d', d => d.d);
-    gArcs.selectAll('circle.arc-spark').data(reduceMotion ? [] : sparks, d => d.code)
+    gArcs.selectAll('circle.arc-spark').data(reduceMotion ? [] : sparks, d => d.key)
       .join('circle').attr('class', 'arc-spark').attr('r', 2.6);
 
     // Head office.
@@ -162,29 +167,40 @@
     hoG.select('.name').text(d => d.city);
     hoG.select('.sub').text(d => d.name);
 
-    // Ports.
-    const pm = gMarks.selectAll('g.port-mark').data(network.ports, d => d.code).join(enter => {
+    // Sites.
+    const current = window.PortPanel.current();
+    const pm = gMarks.selectAll('g.port-mark').data(sites, d => d.name).join(enter => {
       const g = enter.append('g')
         .attr('class', 'port-mark')
         .attr('tabindex', 0)
         .attr('role', 'button')
-        .attr('aria-label', d => `${d.name}, open summary`)
-        .on('click', (e, d) => openPort(d.code))
-        .on('keydown', (e, d) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPort(d.code); } });
+        .attr('aria-label', d => `${d.label}, open summary`)
+        .on('click', (e, d) => openSite(d))
+        .on('keydown', (e, d) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSite(d); } });
       g.append('circle').attr('class', 'hit').attr('r', 18);
       g.append('circle').attr('class', 'ring').attr('r', 7);
       g.append('circle').attr('class', 'core').attr('r', 7);
-      g.append('text').attr('class', 'name').attr('x', 16).attr('y', -1);
-      g.append('text').attr('class', 'sub').attr('x', 16).attr('y', 15);
+      g.append('text').attr('class', 'name').attr('x', 14).attr('y', -1);
+      g.append('text').attr('class', 'sub').attr('x', 14).attr('y', 14);
       return g;
     });
     pm.attr('transform', d => `translate(${screen(d.lng, d.lat)})`)
-      .classed('offline', d => !d.pulse || !d.pulse.ok)
-      .classed('active', d => window.PortPanel.current() === d.code);
-    pm.select('.name').text(d => d.name);
+      .classed('live', d => d.live)
+      .classed('dev', d => d.dev)
+      .classed('active', d => d.ports.some(p => p.code === current));
+    pm.select('.name').text(d => d.label);
     pm.select('.sub').text(d => {
-      if (!d.pulse || !d.pulse.ok) return 'No data from this location';
-      return `${fmt.format(d.pulse.today)} MT today`;
+      if (d.live) return `${fmt.format(d.today)} MT today`;
+      if (d.ports.length > 1) return `${d.ports.length} terminals`;
+      return d.dev ? 'Under development' : '';
+    });
+    // Flip labels to the left when they would run under the panel or off screen.
+    const edge = width - panelWidth() - 12;
+    pm.each(function (d) {
+      const x = screen(d.lng, d.lat)[0];
+      const w = d3.max(d3.select(this).selectAll('text').nodes(), n => n.getComputedTextLength()) || 0;
+      const left = x + 14 + w > edge;
+      d3.select(this).selectAll('text').attr('x', left ? -14 : 14).attr('text-anchor', left ? 'end' : 'start');
     });
   }
 
@@ -203,29 +219,25 @@
   }
 
   // ── panel link ────────────────────────────────────────
-  function openPort(code) {
-    const p = network.ports.find(x => x.code === code);
-    if (!p) return;
-    window.PortPanel.open(p);
-    gMarks.selectAll('g.port-mark').classed('active', d => d.code === code);
-    // Keep the port clear of the panel on wide screens.
-    requestAnimationFrame(() => {
-      const pw = panelWidth();
-      const [x] = screen(p.lng, p.lat);
-      if (pw && x > width - pw - 80) {
-        const dx = (width - pw) / 2 - x;
-        go(d3.zoomIdentity.translate(transform.x + dx, transform.y).scale(transform.k), 600);
-      }
-    });
+  function openSite(s, code) {
+    const p = s.ports.find(x => x.code === code) || s.ports.find(x => x.connected) || s.ports[0];
+    window.PortPanel.open(p, s.ports);
+    drawOverlay();
+    go(homeView(), 700);               // slide the map into the left half
   }
-  window.PortPanel.onClose = () => gMarks.selectAll('g.port-mark').classed('active', false);
+  function openPort(code) {
+    const s = sites.find(x => x.ports.some(p => p.code === code));
+    if (s) openSite(s, code);
+  }
+  window.PortPanel.onSwitch = () => drawOverlay();
+  window.PortPanel.onClose = () => { drawOverlay(); go(homeView(), 700); };
 
   // ── header text + clock ───────────────────────────────
   function updateBrand() {
     const n = network.ports.length;
-    const live = network.ports.filter(p => p.pulse && p.pulse.ok).length;
-    const txt = `${n} ${n === 1 ? 'location' : 'locations'} reporting to ${network.head_office.city}`;
-    document.getElementById('brand-sub').textContent = live === n ? txt : `${txt}, ${n - live} without data`;
+    const abroad = network.ports.filter(p => p.overseas).length;
+    document.getElementById('brand-sub').textContent =
+      `${n} locations${abroad ? `, ${abroad} overseas` : ''}, reporting to ${network.head_office.city}`;
   }
 
   function tick() {
@@ -243,7 +255,7 @@
   function tagStates() {
     const states = topojson.feature(india, india.objects.states).features;
     network.ports.forEach(p => {
-      const s = states.find(f => d3.geoContains(f, [p.lng, p.lat]));
+      const s = p.overseas ? null : states.find(f => d3.geoContains(f, [p.lng, p.lat]));
       p.state = s ? s.properties.name : null;
     });
   }
@@ -255,7 +267,7 @@
     if (!india || !network) return;
     drawBase();
     zoom.extent([[0, 0], [width, height]]);
-    drawOverlay();
+    svg.interrupt().call(zoom.transform, homeView());
   }
 
   async function loadNetwork() {
@@ -264,10 +276,13 @@
     return res.json();
   }
 
+  const loadJson = (url, what) => fetch(url).then(r => { if (!r.ok) throw new Error(`${what} could not load`); return r.json(); });
+
   async function refresh() {
     try {
       network = await loadNetwork();
       tagStates();
+      buildSites();
       updateBrand();
       drawOverlay();
     } catch (e) { console.warn('refresh failed', e); }
@@ -276,8 +291,9 @@
   async function init() {
     tick(); setInterval(tick, 15000);
     try {
-      [india, network] = await Promise.all([
-        fetch(CFG.topo).then(r => { if (!r.ok) throw new Error('Map outline could not load'); return r.json(); }),
+      [india, world, network] = await Promise.all([
+        loadJson(CFG.topo, 'Map outline'),
+        loadJson(CFG.world, 'World outline'),
         loadNetwork(),
       ]);
     } catch (e) {
@@ -287,18 +303,14 @@
       return;
     }
     tagStates();
+    buildSites();
     resize();
     updateBrand();
-    svg.call(zoom.transform, indiaView());
-    setTimeout(() => go(portsView(), 2200), reduceMotion ? 0 : 600);
     if (!reduceMotion) requestAnimationFrame(animate);
-
-    document.getElementById('btn-india').onclick = () => go(indiaView(), 1400);
-    document.getElementById('btn-ports').onclick = () => go(portsView(), 1400);
-    window.addEventListener('resize', () => { resize(); });
+    window.addEventListener('resize', resize);
 
     const wanted = new URLSearchParams(location.search).get('port');
-    if (wanted) setTimeout(() => openPort(wanted.toUpperCase()), reduceMotion ? 0 : 2400);
+    if (wanted) openPort(wanted.toUpperCase());
 
     setInterval(refresh, REFRESH_MS);
   }

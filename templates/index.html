@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Port network</title>
+<title>JSW Infrastructure | Port network</title>
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
@@ -12,9 +13,10 @@
 <body>
 
 <main id="stage">
-  <svg id="map" role="img" aria-label="Map of India showing ports and their link to the Mumbai head office"></svg>
+  <svg id="map" role="img" aria-label="Map of JSW Infrastructure ports and terminals in India and the UAE, linked to the Mumbai head office"></svg>
 
   <header class="brand">
+    <img class="brand-logo" src="{{ url_for('static', filename='img/jsw-logo.svg') }}" alt="JSW Infrastructure">
     <h1>Port network</h1>
     <p id="brand-sub">Loading locations</p>
   </header>
@@ -24,13 +26,9 @@
     <span id="clock-meta"></span>
   </div>
 
-  <div class="map-controls" role="group" aria-label="Map view">
-    <button type="button" id="btn-india">All India</button>
-    <button type="button" id="btn-ports">Zoom to ports</button>
-  </div>
-
   <ul class="legend" aria-label="Legend">
-    <li><span class="key key-port"></span>Port, click for its summary</li>
+    <li><span class="key key-port"></span>Port or terminal, click for its summary</li>
+    <li><span class="key key-dev"></span>Under development</li>
     <li><span class="key key-ho"></span>Head office</li>
     <li><span class="key key-arc"></span>Reporting line</li>
   </ul>
@@ -50,6 +48,7 @@
         <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       </button>
     </div>
+    <nav id="panel-tabs" class="panel-tabs" aria-label="Terminals at this site" hidden></nav>
     <p id="panel-meta" class="panel-meta"></p>
     <div id="panel-body" class="panel-body"></div>
   </div>
@@ -60,6 +59,7 @@
 <script>
   window.PORTNET = {
     topo: "{{ url_for('static', filename='data/india.topo.json') }}",
+    world: "{{ url_for('static', filename='data/world-50m.json') }}",
     network: "{{ url_for('network') }}",
     summary: "{{ url_for('summary', code='__CODE__') }}"
   };

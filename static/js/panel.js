@@ -45,10 +45,11 @@ window.PortPanel = (function () {
     meta: document.getElementById('panel-meta'),
     body: document.getElementById('panel-body'),
     close: document.getElementById('panel-close'),
+    tabs: document.getElementById('panel-tabs'),
   };
 
-  let code = null, timer = null, data = null, mixPeriod = 'month', lastFocus = null;
-  const api = { onClose: null, current: () => code, open, close };
+  let code = null, timer = null, data = null, mixPeriod = 'month', lastFocus = null, siblings = [];
+  const api = { onClose: null, onSwitch: null, current: () => code, open, close };
 
   // ── utils ─────────────────────────────────────────────
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -277,6 +278,13 @@ window.PortPanel = (function () {
   // ── render ────────────────────────────────────────────
   function render() {
     const d = data;
+    if (!d.connected) {
+      el.body.innerHTML = `<section class="sec"><h3>${esc(d.status)}${d.overseas ? ' <small>Overseas</small>' : ''}</h3>
+        <p class="empty-note">Live operations data for this location is not connected to the dashboard yet.</p></section>`;
+      el.body.classList.remove('loading');
+      el.meta.textContent = '';
+      return;
+    }
     const parts = [];
     if (d.throughput) {
       parts.push(secToday(d.throughput, d.shift), secMonth(d.throughput, d.op_date), secFY(d.throughput), secMix(d.throughput));
@@ -285,7 +293,7 @@ window.PortPanel = (function () {
     if (d.inbound) parts.push(secInbound(d.inbound));
     if (d.delays) parts.push(secDelays(d.delays));
     if (d.shift_info) parts.push(secShift(d.shift_info));
-    parts.push(secTideWeather(d.tide, d.weather, d.as_of));
+    if (d.tide || d.weather) parts.push(secTideWeather(d.tide, d.weather, d.as_of));
     if (d.mbc_fleet) parts.push(secFleet(d.mbc_fleet));
     if (d.errors && d.errors.length) {
       parts.push(`<div class="errors">Some sections could not load: ${d.errors.map(e => `${esc(e.section)} (${esc(e.error)})`).join('; ')}</div>`);
@@ -334,7 +342,23 @@ window.PortPanel = (function () {
     }
   }
 
-  function open(p) {
+  // One button per terminal when a site has several.
+  function setTabs(p) {
+    el.tabs.hidden = siblings.length < 2;
+    el.tabs.innerHTML = siblings.length < 2 ? '' : siblings.map(s =>
+      `<button type="button" data-code="${esc(s.code)}" aria-pressed="${s.code === p.code}">${esc(s.name)}${s.status !== 'Operational' ? ' <em>(planned)</em>' : ''}</button>`).join('');
+  }
+  el.tabs.addEventListener('click', e => {
+    const b = e.target.closest('[data-code]');
+    const p = b && siblings.find(s => s.code === b.dataset.code);
+    if (!p || p.code === code) return;
+    open(p, siblings);
+    if (api.onSwitch) api.onSwitch();
+  });
+
+  function open(p, sibs) {
+    siblings = sibs || [p];
+    setTabs(p);
     if (!el.panel.classList.contains('open')) lastFocus = document.activeElement;
     if (code !== p.code) { data = null; el.body.innerHTML = ''; el.meta.textContent = 'Loading summary'; }
     code = p.code;

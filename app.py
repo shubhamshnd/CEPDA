@@ -18,6 +18,18 @@ def _image_url(loc):
     return None
 
 
+def _info(loc):
+    return {
+        "code": loc["code"],
+        "name": loc["name"],
+        "region": loc.get("region", ""),
+        "status": loc.get("status", "Operational"),
+        "overseas": bool(loc.get("overseas")),
+        "connected": bool(loc.get("schema")),
+        "image": _image_url(loc),
+    }
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -29,19 +41,13 @@ def network():
     ports = []
     for loc in config.LOCATIONS:
         ports.append({
-            "code": loc["code"],
-            "name": loc["name"],
-            "region": loc.get("region", ""),
+            **_info(loc),
+            "site": loc.get("site", loc["name"]),
             "lat": loc["lat"],
             "lng": loc["lng"],
-            "image": _image_url(loc),
-            "pulse": port_pulse(loc),
+            "pulse": port_pulse(loc) if loc.get("schema") else None,
         })
-    return jsonify({
-        "head_office": config.HEAD_OFFICE,
-        "ports": ports,
-        "places": config.REFERENCE_PLACES,
-    })
+    return jsonify({"head_office": config.HEAD_OFFICE, "ports": ports})
 
 
 @app.route("/api/ports/<code>/summary")
@@ -49,9 +55,8 @@ def summary(code):
     loc = config.location(code)
     if not loc:
         abort(404)
-    data = port_summary(loc)
-    data["image"] = _image_url(loc)
-    return jsonify(data)
+    data = port_summary(loc) if loc.get("schema") else {}
+    return jsonify({**data, **_info(loc)})
 
 
 if __name__ == "__main__":
