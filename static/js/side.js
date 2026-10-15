@@ -28,14 +28,9 @@ window.SidePanel = (function () {
     network.ports.forEach(p => byGroup[GROUPS.find(([, , test]) => test(p))[0]].push(p));
     members = Object.fromEntries(Object.entries(byGroup).map(([k, ps]) => [k, ps.map(p => p.code)]));
     const label = Object.fromEntries(GROUPS.map(([k, l]) => [k, l]));
-    const pct = Math.round(c.target.now / c.target.goal * 100);
 
     el.innerHTML = `
       <div class="kpis">${c.kpis.map(k => `<div class="kpi"><b>${esc(k.value)}<small>${esc(k.unit)}</small></b><span>${esc(k.label)}</span></div>`).join('')}</div>
-      <div class="target">
-        <div class="target-row"><span>Capacity target</span><span>${c.target.now} of <b>${c.target.goal} MTPA</b> by ${esc(c.target.by)}</span></div>
-        <div class="target-bar" role="img" aria-label="${pct}% of the ${c.target.goal} MTPA target"><i style="width:${pct}%"></i></div>
-      </div>
 
       <h2 class="side-h">Locations <span>${network.ports.length}</span></h2>
       <div class="groups">${ORDER.map(k => {

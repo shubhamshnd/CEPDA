@@ -81,12 +81,8 @@ COMPANY = {
     "source": "https://www.jswinfrastructure.in/",
     "kpis": [
         {"value": "183", "unit": "MTPA", "label": "Operational capacity"},
-        {"value": "122", "unit": "MMT", "label": "Cargo handled"},
-        {"value": "₹5,361", "unit": "Cr", "label": "Operating revenue"},
-        {"value": "₹1,547", "unit": "Cr", "label": "Profit after tax"},
     ],
     "period": "FY2026",
-    "target": {"now": 183, "goal": 400, "by": "2030"},   # MTPA
     "footprint": "3 port concessions and 11 terminals across Maharashtra, Goa, "
                  "Karnataka, Tamil Nadu, Odisha and the UAE",
 }
