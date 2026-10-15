@@ -3,6 +3,8 @@
 Every location lives in the same database (viewmirror); each one gets its own
 schema of mirrored views. To add a location, append an entry to LOCATIONS.
 Entries without a "schema" are drawn on the map but show no live data.
+"image" is the panel banner; "berth_image" is the photo the berth layout boxes
+were drawn on (vessels are plotted over it).
 """
 import os
 
@@ -30,24 +32,25 @@ DEV = "Under development"
 LOCATIONS = [
     # ── Ports ──
     {"code": "DPPL", "name": "Dharamtar Port", "region": "Raigad, Maharashtra",
-     "lat": 18.710037, "lng": 73.027488, "schema": "portbird_dppl", "image": "img/dppl.png"},
+     "lat": 18.710037, "lng": 73.027488, "schema": "portbird_dppl",
+     "image": "img/dppl_drone.png", "berth_image": "img/dppl.png"},
     {"code": "PNP", "name": "PNP Port", "region": "Raigad, Maharashtra",
      "lat": 18.7080, "lng": 72.9520},
     {"code": "JNPTL", "name": "JNPT Liquid Terminal", "region": "Navi Mumbai, Maharashtra",
-     "lat": 18.9500, "lng": 72.9500},
+     "lat": 18.9500, "lng": 72.9500, "image": "img/jnpt_drone.jpg"},
     {"code": "JPL", "name": "Jaigarh Port", "region": "Ratnagiri, Maharashtra",
-     "lat": 17.2960, "lng": 73.2170},
+     "lat": 17.2960, "lng": 73.2170, "image": "img/jpl_drone.jpg"},
     {"code": "MURBE", "name": "Murbe Port", "region": "Palghar, Maharashtra",
      "lat": 19.7900, "lng": 72.7000, "status": DEV},
     {"code": "KENI", "name": "Keni Port", "region": "Uttara Kannada, Karnataka",
      "lat": 14.6600, "lng": 74.2800, "status": DEV},
     # ── Terminals ──
     {"code": "SWPL", "name": "South West Port", "region": "Mormugao, Goa",
-     "lat": 15.4100, "lng": 73.7950},
+     "lat": 15.4100, "lng": 73.7950, "image": "img/swpl_drone.png"},
     {"code": "MCT", "name": "Mangalore Coal Terminal", "region": "Panambur, Karnataka",
-     "lat": 12.9250, "lng": 74.8070},
+     "lat": 12.9250, "lng": 74.8070, "image": "img/mangalorecoal_drone.jpg"},
     {"code": "MCTL", "name": "Mangalore Container Terminal", "region": "Panambur, Karnataka",
-     "lat": 12.9270, "lng": 74.8100},
+     "lat": 12.9270, "lng": 74.8100, "image": "img/mangalore-container-terminal_drone.jpg"},
     {"code": "VOC", "name": "NCB III, VOC Port", "region": "Thoothukudi, Tamil Nadu",
      "lat": 8.7600, "lng": 78.2000},
     {"code": "EBT", "name": "Ennore Bulk Terminal", "region": "Kamarajar Port, Tamil Nadu",
@@ -55,9 +58,9 @@ LOCATIONS = [
     {"code": "ECT", "name": "Ennore Coal Terminal", "region": "Kamarajar Port, Tamil Nadu",
      "lat": 13.2570, "lng": 80.3320},
     {"code": "PTIO", "name": "Paradip Terminal, Iron Ore", "region": "Paradip, Odisha",
-     "lat": 20.2640, "lng": 86.6760},
+     "lat": 20.2640, "lng": 86.6760, "image": "img/paradip-iron-ore_drone.jpg"},
     {"code": "PEQCT", "name": "Paradip East Quay Coal Terminal", "region": "Paradip, Odisha",
-     "lat": 20.2680, "lng": 86.6800},
+     "lat": 20.2680, "lng": 86.6800, "image": "img/paradip-east-quay-coal_drone.jpg"},
     {"code": "JATADHAR", "name": "Jatadhar Port", "region": "Jagatsinghpur, Odisha",
      "lat": 20.1800, "lng": 86.6200, "status": DEV},
     {"code": "KCT", "name": "Kolkata Container Terminal", "region": "Kolkata, West Bengal",

@@ -221,7 +221,7 @@ ${v.status}`;
   function secAtPort(a, d) {
     const s = a.status;
     const placed = a.berths.filter(b => b.box);
-    const plot = d.image && d.image_size && placed.length ? berthPlot(placed, d.image, d.image_size) : '';
+    const plot = d.berth_image && d.berth_image_size && placed.length ? berthPlot(placed, d.berth_image, d.berth_image_size) : '';
     const unplaced = a.berths.filter(b => !plot || !b.box);   // berths missing from the layout
     const berths = unplaced.map(b => {
       if (!b.vessels.length) return `<li class="berth empty"><div class="berth-name">${esc(b.berth)}</div></li>`;
