@@ -177,19 +177,30 @@ window.PortPanel = (function () {
   // Vessels drawn on the port photo using each berth's box (image pixels) from
   // vw_port_overview_berth_layout. Same rules as PORTMAN port_overview: boats
   // stack outward from the berth face by bank tier, A/S innermost.
-  const PLOT_W = 440;                   // css px the plot is laid out for
+  // The photo is portrait; it is turned a quarter clockwise to sit landscape in
+  // the panel (water on top, Berth 1 on the left). Boats and berth marks turn
+  // with it; names and berth labels are drawn upright on top.
   let plotBoats = [];                   // vessel + berth per boat, indexed by data-i
+  const STATUS = [['working', 'Discharging'], ['waiting', 'Waiting'], ['done', 'Completed']];
   function berthPlot(berths, src, size) {
-    const [iw, ih] = size, k = iw / PLOT_W;    // image px per css px
-    const fs = 12 * k, marks = [], boats = [], labels = [];
+    const [iw, ih] = size, W = ih, H = iw;                    // landscape after the turn
+    const turn = (x, y) => [ih - y, x];                        // photo px -> landscape px
+    // Crop to the jetty, with room above it for names, so boats draw larger.
+    const xs = berths.map(b => ih - b.box.cy), ys = berths.map(b => b.box.cx);
+    const vx = Math.max(0, Math.min(...xs) - 160), vx1 = Math.min(W, Math.max(...xs) + 160);
+    const vy = Math.max(0, Math.min(...ys) - 200), vy1 = Math.min(H, Math.max(...ys) + 170);
+    const k = (vx1 - vx) / Math.max(320, el.body.clientWidth - 48);   // landscape px per css px
+    const fs = 12 * k, turned = [], marks = [], labels = [], obstacles = [];
+    const counts = { working: 0, waiting: 0, done: 0 };
     plotBoats = [];
     berths.forEach(b => {
       const { cx, cy, w = 60, h = 60, angle = 0 } = b.box;
       const th = angle * Math.PI / 180, cos = Math.cos(th), sin = Math.sin(th);
-      // Berth marker on the jetty side, clear of the boats.
+      // Berth marker on the jetty side, clear of the boats; its label just past it.
       const mx = cx + (w / 2 + 16) * cos, my = cy + (w / 2 + 16) * sin;
-      marks.push(`<g transform="translate(${mx},${my}) rotate(${angle})"><line class="bm" y1="${-h / 2}" y2="${h / 2}"/></g>
-        <text class="bl" x="${mx + 6 * k}" y="${my}" dy=".35em" font-size="${fs * .9}">${esc(String(b.berth).replace(/^BERTH\s*/i, 'B'))}</text>`);
+      turned.push(`<g transform="translate(${mx},${my}) rotate(${angle})"><line class="bm" y1="${-h / 2}" y2="${h / 2}"/></g>`);
+      const [bx, by] = turn(mx + 14 * k, my);
+      marks.push(`<text class="bl" x="${bx}" y="${by}" dy=".35em" text-anchor="middle" font-size="${fs * .9}">${esc(String(b.berth).replace(/^BERTH\s*/i, 'B'))}</text>`);
       const bargeLen = Math.min(Math.max(h * 0.7, 14), 80);
       let edge = w / 2;
       b.vessels.slice().sort((p, q) => p.tier - q.tier).forEach(v => {
@@ -198,25 +209,40 @@ window.PortPanel = (function () {
         edge -= beam + 2;
         const x = cx + off * cos, y = cy + off * sin;
         const cls = v.status === 'Under Discharge' ? 'working' : v.status === 'Discharge Completed' ? 'done' : 'waiting';
+        counts[cls]++;
         const i = plotBoats.push({ v, berth: b.berth }) - 1;
-        boats.push(`<rect class="boat ${cls}" data-i="${i}" tabindex="0" role="button" aria-label="${esc(v.name)}, ${v.type === 'MBC' ? 'MBC' : 'barge'} at ${esc(b.berth)}"
+        turned.push(`<rect class="boat ${cls}" data-i="${i}" tabindex="0" role="button" aria-label="${esc(v.name)}, ${v.type === 'MBC' ? 'MBC' : 'barge'} at ${esc(b.berth)}"
           x="${-beam / 2}" y="${-len / 2}" width="${beam}" height="${len}" rx="${beam / 2}"
           transform="translate(${x},${y}) rotate(${angle})"/>`);
-        labels.push({ x: x - beam / 2, y, name: v.name, i });
+        const [sx, sy] = turn(x, y);                           // boats lie roughly along the landscape x axis
+        obstacles.push([sx - len / 2, sy - beam / 2, sx + len / 2, sy + beam / 2]);
+        labels.push({ x: sx, top: sy - beam / 2, name: v.name, i });
       });
     });
-    // Names in a column down the water side, pushed apart so none overlap.
-    const pitch = 16 * k, lx = 8 * k;
-    let prev = -Infinity;
-    labels.sort((a, b) => a.y - b.y).forEach(L => { L.ly = Math.max(L.y, prev + pitch); prev = L.ly; });
-    const names = labels.map(L => {
-      const end = lx + L.name.length * 6.4 * k;
-      return `<line class="ld" x1="${end + 3 * k}" y1="${L.ly}" x2="${L.x}" y2="${L.y}"/>
-        <text class="vl" data-i="${L.i}" x="${lx}" y="${L.ly}" dy=".35em" font-size="${fs}">${esc(L.name)}</text>`;
+
+    // Names above their boats (the water side), each in the lowest row that is
+    // free of other names and boats, with a leader line down to the boat.
+    const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+    const placed = obstacles.slice(), names = [];
+    labels.sort((a, b) => a.x - b.x).forEach(L => {
+      const half = L.name.length * 3.2 * k + 3 * k;            // ~6.4 px a character at 12 px
+      const x = Math.min(Math.max(L.x, vx + half + 4 * k), vx1 - half - 4 * k);
+      let y = L.top - 12 * k, box;
+      for (let r = 0; r < 14; r++, y -= 15 * k) {
+        box = [x - half, y - 11 * k, x + half, y + 3 * k];
+        if (!placed.some(p => hit(box, p))) break;
+      }
+      placed.push(box);
+      names.push(`<line class="ld" x1="${x}" y1="${y + 3 * k}" x2="${L.x}" y2="${L.top}"/>
+        <text class="vl" data-i="${L.i}" x="${x}" y="${y}" text-anchor="middle" font-size="${fs}">${esc(L.name)}</text>`);
     });
-    return `<figure class="berth-plot"><svg viewBox="0 0 ${iw} ${ih}" role="group" aria-label="Berth layout with vessels at each berth">
-      <image href="${esc(src)}" width="${iw}" height="${ih}"/>
-      ${marks.join('')}${names.join('')}${boats.join('')}</svg></figure>`;
+
+    return `<figure class="berth-plot"><svg viewBox="${vx} ${vy} ${vx1 - vx} ${vy1 - vy}" role="group" aria-label="Berth layout with vessels at each berth">
+      <g transform="translate(${ih},0) rotate(90)"><image href="${esc(src)}" width="${iw}" height="${ih}"/>${turned.join('')}</g>
+      ${marks.join('')}${names.join('')}</svg>
+      <figcaption class="plot-legend">${STATUS.map(([c, l]) =>
+        `<span><i class="${c}"></i>${l} <b>${counts[c]}</b></span>`).join('')}<span class="plot-note">MBCs drawn longer than barges</span></figcaption>
+    </figure>`;
   }
 
   // Hover card for a boat (or its name label) on the berth plot.
@@ -282,7 +308,6 @@ window.PortPanel = (function () {
   el.panel.querySelector('.panel-scroll').addEventListener('scroll', hideTip, { passive: true });
 
   function secAtPort(a, d) {
-    const s = a.status;
     const placed = a.berths.filter(b => b.box);
     const plot = d.berth_image && d.berth_image_size && placed.length ? berthPlot(placed, d.berth_image, d.berth_image_size) : '';
     const unplaced = a.berths.filter(b => !plot || !b.box);   // berths missing from the layout
@@ -304,11 +329,6 @@ window.PortPanel = (function () {
     }).join('');
     return `<section class="sec">
       <h3>At the berths <small>${a.occupied_berths} of ${a.berths.length} occupied</small></h3>
-      <div class="counts">
-        <div class="count working"><span class="fig">${s['Under Discharge'] || 0}</span><span>Discharging</span></div>
-        <div class="count"><span class="fig">${s['Waiting'] || 0}</span><span>Waiting</span></div>
-        <div class="count done"><span class="fig">${s['Discharge Completed'] || 0}</span><span>Completed</span></div>
-      </div>
       <p class="note">Still to discharge at port: <strong>${mt(a.balance_to_discharge)} MT</strong></p>
       ${plot}
       ${unplaced.length ? `<ul class="berths">${berths}</ul>` : ''}

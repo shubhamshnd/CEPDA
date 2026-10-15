@@ -315,15 +315,9 @@ body.panel-open .zoom-hint { right: calc(var(--panel-w) + 24px); }
 .mix .p { color: var(--text-3); width: 3.2em; text-align: right; }
 
 /* at port */
-.counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.count { background: var(--surface-2); border-radius: 6px; padding: 10px 12px; }
-.count .fig { font-size: 28px; display: block; }
-.count span:last-child { font-size: 12.5px; color: var(--text-2); }
-.count.working .fig { color: var(--port); }
-.count.done .fig { color: var(--good); }
 
 /* berth plot: vessels drawn on the port image */
-.berth-plot { max-width: 440px; margin: 16px auto 0; }
+.berth-plot { margin-top: 16px; }
 .berth-plot svg { width: 100%; height: auto; display: block; border-radius: 8px; }
 .berth-plot .bm { stroke: rgba(255, 255, 255, .7); stroke-width: 3; }
 .berth-plot .bl { fill: #fff; font-weight: 600; paint-order: stroke; stroke: rgba(0, 0, 0, .7); stroke-width: 4px; }
@@ -336,10 +330,20 @@ body.panel-open .zoom-hint { right: calc(var(--panel-w) + 24px); }
 .berth-plot .vl { cursor: help; }
 .berth-plot .vl.hot { fill: var(--port-hi); }
 .berth-plot .vl { fill: #fff; paint-order: stroke; stroke: rgba(0, 0, 0, .75); stroke-width: 4px; }
+/* legend: a strip joined to the bottom of the photo, so it never covers a berth */
+.berth-plot svg { border-radius: 8px 8px 0 0; }
+.plot-legend {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px;
+  padding: 9px 12px; border-radius: 0 0 8px 8px; background: var(--surface-2);
+  font-size: 12.5px; color: var(--text-2);
+}
+.plot-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.plot-legend b { color: var(--text); font-weight: 600; }
+.plot-legend i { width: 18px; height: 7px; border-radius: 4px; background: var(--wait); }
+.plot-legend i.working { background: var(--port); }
+.plot-legend i.done { background: var(--good); }
+.plot-legend .plot-note { color: var(--text-3); margin-left: auto; }
 .berth-plot .ld { stroke: rgba(255, 255, 255, .45); stroke-width: 1.2; }
-.count .fig::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; background: var(--wait); }
-.count.working .fig::before { background: var(--port); }
-.count.done .fig::before { background: var(--good); }
 /* hover card for a boat on the berth plot */
 .boat-tip {
   position: fixed; z-index: 30; pointer-events: none; width: 240px;
