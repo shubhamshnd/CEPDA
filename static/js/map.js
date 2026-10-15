@@ -19,6 +19,8 @@
   const gArcs = gOver.append('g').attr('class', 'arcs');
   const gMarks = gOver.append('g');
   const gFocus = gOver.append('g');     // "Now viewing" callout, above the markers
+  const gFleet = gOver.insert('g', () => gMarks.node()).attr('class', 'fleet off');   // MBC shuttle, under the markers
+  const fleetKey = document.getElementById('fleet-key');
 
   const projection = d3.geoMercator();
   const path = d3.geoPath(projection).digits(2);   // 0.01 px is plenty, and shrinks the path strings
@@ -284,6 +286,7 @@
       .attr('transform', d => `translate(${screen(d.lng, d.lat)})`)
       .text(d => d.name);
 
+    drawFleet();
     const nodes = layout();
     const isDev = p => p.status !== 'Operational';
 
@@ -385,6 +388,87 @@
     if (!moving) placeLabels(pm, nodes, ho);
   }
 
+  // ── MBC fleet: Dharamtar's shuttle from Jaigarh via Gull Island ──
+  // Shown once zoomed in (the overview is too small for a fleet of ships). Each
+  // ship sits where its voyage stage puts it (config.MBC_ROUTE): at an anchorage,
+  // or spread evenly along its leg, since the view has no time-into-leg.
+  const FLEET_GAP = 11;                 // px between ships waiting at one anchorage
+  const FLEET_SIDE = 5;                 // px a ship under way keeps to the right of the channel line
+  const HULL = 'M7,0 L3,-3.2 L-6,-3.2 L-6,3.2 L3,3.2 Z';
+  const stageText = s => s.toLowerCase()
+    .replace(' : ', ', ').replace('on the way to', 'heading to').replace(/\bgull\b/, 'Gull Island')
+    .replace('dharamtar', 'Dharamtar').replace('jaigad', 'Jaigad').replace(/^\w/, c => c.toUpperCase());
+
+  function drawFleet() {
+    const R = network.fleet_route;
+    const F = (network.fleet || []).filter(m => R && R.status[m.status]);
+    const show = !!focused && (R.show_for || []).includes(focused.code) && F.length > 0;
+    gFleet.classed('off', !show);
+    fleetKey.hidden = !show;
+    if (!show && !moving) return;       // faded out: nothing to redraw
+    const loaded = F.filter(m => !m.status.startsWith('EMPTY')).length;
+    fleetKey.querySelector('[data-n="loaded"]').textContent = loaded;
+    fleetKey.querySelector('[data-n="empty"]').textContent = F.length - loaded;
+
+    const pt = ([lat, lng]) => screen(lng, lat);
+    gFleet.selectAll('path.lane').data(R.lanes || Object.keys(R.legs), d => d).join('path')
+      .attr('class', 'lane')
+      .attr('d', k => d3.line()(R.legs[k].map(pt)));
+
+    const ships = [];
+    d3.groups(F, m => R.status[m.status].join(':')).forEach(([key, list]) => {
+      const [mode, ref] = key.split(':');
+      if (mode === 'at') {              // waiting: a small grid around the anchorage
+        const a = R.anchors[ref], [cx, cy] = screen(a.lng, a.lat);
+        const cols = Math.ceil(Math.sqrt(list.length)), rows = Math.ceil(list.length / cols);
+        list.forEach((m, i) => ships.push({
+          m, x: cx + (i % cols - (cols - 1) / 2) * FLEET_GAP, y: cy + (Math.floor(i / cols) - (rows - 1) / 2) * FLEET_GAP, a: -90,
+        }));
+        return;
+      }
+      const pts = R.legs[ref].map(pt);  // under way: evenly along the leg, bow on course
+      const seg = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]));
+      const total = d3.sum(seg);
+      list.forEach((m, i) => {
+        let d = total * (i + 1) / (list.length + 1), j = 0;
+        while (j < seg.length - 1 && d > seg[j]) { d -= seg[j]; j++; }
+        const p = pts[j], q = pts[j + 1], t = seg[j] ? d / seg[j] : 0;
+        const ux = (q[0] - p[0]) / (seg[j] || 1), uy = (q[1] - p[1]) / (seg[j] || 1);
+        // Keep to starboard (right of course), so traffic each way has its own side of the channel.
+        ships.push({ m, x: p[0] + (q[0] - p[0]) * t - uy * FLEET_SIDE, y: p[1] + (q[1] - p[1]) * t + ux * FLEET_SIDE,
+                     a: Math.atan2(uy, ux) * 180 / Math.PI });
+      });
+    });
+    // At a port's zoom the Gull Island -> Dharamtar end is only a few px long, so
+    // nudge apart any ships closer than FLEET_GAP; each stays visible and hoverable.
+    for (let it = 0; it < 16; it++) {
+      for (let i = 0; i < ships.length; i++) {
+        for (let j = i + 1; j < ships.length; j++) {
+          const A = ships[i], B = ships[j], dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy);
+          if (d >= FLEET_GAP) continue;
+          const ux = d > 0.01 ? dx / d : Math.cos(j), uy = d > 0.01 ? dy / d : Math.sin(j);   // same spot: split by index
+          const push = (FLEET_GAP - d) / 2;
+          A.x -= ux * push; A.y -= uy * push; B.x += ux * push; B.y += uy * push;
+        }
+      }
+    }
+    gFleet.selectAll('g.ship').data(ships, d => d.m.name).join(enter => {
+      const g = enter.append('g').attr('class', 'ship');
+      g.append('path').attr('d', HULL);
+      g.append('title');
+      return g;
+    })
+      .attr('transform', d => `translate(${d.x},${d.y}) rotate(${d.a})`)
+      .classed('empty', d => d.m.status.startsWith('EMPTY'))
+      .select('title').text(d => `${d.m.name}${d.m.cargo ? ' · ' + d.m.cargo : ''}\n${stageText(d.m.status)}`);
+
+    // Anchorages that are not JSW locations (Gull Island) get their own label.
+    gFleet.selectAll('text.anch').data(Object.values(R.anchors).filter(a => a.label), a => a.name).join('text')
+      .attr('class', 'anch').attr('text-anchor', 'middle')
+      .attr('transform', a => { const [x, y] = screen(a.lng, a.lat); return `translate(${x},${y - 18})`; })
+      .text(a => a.name);
+  }
+
   // Label text never changes width, so measure each string once. Reading text
   // sizes forces a browser layout, which is what made animation frames stutter.
   const widths = new Map();
@@ -426,7 +510,7 @@
     const hoW = focused ? 0 : d3.max(gMarks.selectAll('g.ho-mark text').nodes(), textWidth) || 0;
     taken.push([ho[0] - 18 - hoW, ho[1] - 14, ho[0] + 8, ho[1] + 18]);    // head office + its label
     // Page furniture drawn over the map: logo block, clock, zoom hint.
-    document.querySelectorAll('#side, .clock, #zoom-hint:not([hidden]), #support').forEach(n => {
+    document.querySelectorAll('#side, .clock, #zoom-hint:not([hidden]), #fleet-key:not([hidden]), #support').forEach(n => {
       const r = n.getBoundingClientRect();
       taken.push([r.left - 6, r.top - 6, r.right + 6, r.bottom + 6]);
     });

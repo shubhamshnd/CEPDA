@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 from flask import Flask, abort, jsonify, render_template, url_for
 
 import config
-from summary import port_pulse, port_summary
+from summary import fleet, port_pulse, port_summary
 from summary_jnpa import jnpa_pulse, jnpa_summary
 
 # Which view set a location's schema holds -> its summary and map-pulse readers.
@@ -79,7 +79,11 @@ def network():
             "lng": loc["lng"],
             "pulse": _readers(loc)[1](loc) if loc.get("schema") else None,
         })
-    return jsonify({"head_office": config.HEAD_OFFICE, "company": config.COMPANY, "ports": ports})
+    return jsonify({
+        "head_office": config.HEAD_OFFICE, "company": config.COMPANY, "ports": ports,
+        "fleet": [m for loc in config.LOCATIONS if loc.get("mbc_fleet") and loc.get("schema") for m in fleet(loc)],
+        "fleet_route": config.MBC_ROUTE,
+    })
 
 
 @app.route("/api/ports/<code>/summary")

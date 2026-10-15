@@ -75,6 +75,28 @@ button { font: inherit; color: inherit; }
 }
 @keyframes flow { to { stroke-dashoffset: -16; } }
 .arcs { transition: opacity .5s ease; }
+
+/* MBC fleet at sea (Dharamtar's shuttle from Jaigarh via Gull Island) */
+.fleet { transition: opacity .5s ease; }
+.fleet.off { opacity: 0; pointer-events: none; }
+.fleet .lane { fill: none; stroke: #E3B04B; stroke-width: 1.4; stroke-dasharray: 2 6; stroke-linecap: round; opacity: .5; }
+.fleet .ship path { fill: #E3B04B; stroke: var(--sea); stroke-width: 1.2; }
+.fleet .ship.empty path { fill: var(--wait); }
+.fleet .ship:hover path { stroke: #fff; stroke-width: 1.6; }
+.fleet .anch { fill: var(--text-2); font-size: 12.5px; font-style: italic; letter-spacing: .06em;
+  paint-order: stroke; stroke: var(--sea); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+.fleet-key {
+  position: absolute; right: 70px; bottom: calc(66px + var(--safe-b)); pointer-events: none;
+  display: flex; align-items: center; gap: 12px; transition: right .35s ease;
+  background: rgba(13, 26, 51, .85); border: 1px solid var(--rule); border-radius: 6px;
+  padding: 6px 12px; font-size: 12.5px; color: var(--text-2);
+}
+.fleet-key[hidden] { display: none; }
+.fleet-key span { display: inline-flex; align-items: center; gap: 6px; }
+.fleet-key b { color: var(--text); font-weight: 600; }
+.fleet-key path.loaded { fill: #E3B04B; }
+.fleet-key path.empty { fill: var(--wait); }
+body.panel-open .fleet-key { right: calc(var(--panel-w) + 70px); }
 .arcs.off { opacity: 0; }
 
 /* "Now viewing" callout on the port the map is zoomed to */

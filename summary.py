@@ -358,6 +358,19 @@ def port_summary(loc, now=None):
         }
 
 
+def fleet(loc):
+    """The MBC shuttle for the map: name, cargo and voyage stage of each MBC."""
+    try:
+        with connection() as conn:
+            rows = SchemaQuery(conn, loc["schema"]).all(
+                "SELECT mbc_name, cargo_name, mbc_status FROM {s}.vw_port_overview_mbc_status ORDER BY mbc_name")
+        return [{"name": r["mbc_name"], "cargo": r["cargo_name"] or "",
+                 "status": (r["mbc_status"] or "").strip().upper()} for r in rows if r["mbc_name"]]
+    except Exception:
+        log.exception("fleet failed for %s", loc["code"])
+        return []
+
+
 def port_pulse(loc, now=None):
     """Light numbers for the map label: today's total and vessels working."""
     now = now or datetime.now()

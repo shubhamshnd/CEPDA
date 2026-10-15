@@ -36,7 +36,8 @@ LOCATIONS = [
     # ── Ports ──
     {"code": "DPPL", "kind": "port", "name": "Dharamtar Port", "region": "Raigad, Maharashtra",
      "lat": 18.710037, "lng": 73.027488, "schema": "portbird_dppl",
-     "image": "img/dppl_drone.png", "berth_image": "img/dppl.png"},
+     "image": "img/dppl_drone.png", "berth_image": "img/dppl.png",
+     "mbc_fleet": True},   # its schema has vw_port_overview_mbc_status: drawn at sea on the map
     {"code": "PNP", "kind": "port", "name": "PNP Port", "region": "Raigad, Maharashtra",
      "lat": 18.7080, "lng": 72.9520},
     {"code": "JNPTL", "name": "JNPT Liquid Terminal", "region": "Navi Mumbai, Maharashtra",
@@ -78,6 +79,45 @@ LOCATIONS = [
     {"code": "DIBBA", "name": "Dibba Port", "region": "Dibba, UAE",
      "lat": 25.5950, "lng": 56.2750, "overseas": True},
 ]
+
+# MBC shuttle feeding Dharamtar: load at Jaigarh, sail up the coast to Gull Island
+# (Kansa Rock, 18°50'N 72°54'E, Admiralty Sailing Directions Pub 173) at the mouth
+# of Mumbai harbour, wait there, then run up the Amba river (Dharamtar creek) to
+# discharge at Dharamtar, and sail back empty. The view only gives each MBC's stage,
+# not when it started, so ships on a leg are spread evenly along it.
+# Waypoints are [lat, lng] along the channel traced on the chart.
+MBC_ROUTE = {
+    "anchors": {
+        "jaigarh_berth":   {"name": "Jaigarh", "lat": 17.297, "lng": 73.208},
+        "jaigarh":         {"name": "Jaigarh anchorage", "lat": 17.3101083, "lng": 73.1607203},
+        "gull":            {"name": "Gull Island", "lat": 18.840, "lng": 72.893, "label": True},
+        "dharamtar":       {"name": "Dharamtar anchorage", "lat": 18.7192579, "lng": 73.0130969},
+        "dharamtar_berth": {"name": "Dharamtar berths", "lat": 18.7065425, "lng": 73.0268662},
+    },
+    # The traced channel (Jaigarh -> open sea -> Gull Island -> Amba river -> Dharamtar),
+    # split at Gull Island. Empty MBCs run it in reverse.
+    "legs": {
+        "to_gull": [[17.3101083, 73.1607203], [18.1812905, 72.7306946], [18.8378822, 72.7853589], [18.84, 72.893]],
+        "to_dharamtar": [[18.84, 72.893], [18.8413313, 72.9347746], [18.8323214, 72.959388], [18.8060258, 72.9644391], [18.7898878, 72.980855], [18.7854276, 72.9934757], [18.7824945, 72.9979507], [18.77728, 72.9986392], [18.7697839, 72.9948526], [18.7652209, 72.9914103], [18.7570723, 72.986591], [18.7476195, 72.9855583], [18.7388181, 72.9896891], [18.7309943, 72.9945084], [18.7228441, 73.0020815], [18.7192579, 73.0130969], [18.7133893, 73.0213585], [18.7065425, 73.0268662]],
+        "to_jaigarh": [[18.7065425, 73.0268662], [18.7133893, 73.0213585], [18.7192579, 73.0130969], [18.7228441, 73.0020815], [18.7309943, 72.9945084], [18.7388181, 72.9896891], [18.7476195, 72.9855583], [18.7570723, 72.986591], [18.7652209, 72.9914103], [18.7697839, 72.9948526], [18.77728, 72.9986392], [18.7824945, 72.9979507], [18.7854276, 72.9934757], [18.7898878, 72.980855], [18.8060258, 72.9644391], [18.8323214, 72.959388], [18.8413313, 72.9347746], [18.84, 72.893], [18.8378822, 72.7853589], [18.1812905, 72.7306946], [17.3101083, 73.1607203]],
+    },
+    "lanes": ["to_gull", "to_dharamtar"],
+    "show_for": ["DPPL", "JPL"],             # the fleet is drawn only when one of these is selected   # drawn as the route line (to_jaigarh is the same water)
+    # vw_port_overview_mbc_status.mbc_status -> where the ship is drawn
+    "status": {
+        "UNDER LOADING":                    ["at", "jaigarh_berth"],
+        "LOADED : WAITING AT LOAD PORT":    ["at", "jaigarh"],
+        "EMPTY : WAITING AT LOAD PORT":     ["at", "jaigarh"],
+        "EMPTY : WAITING AT JAIGAD":        ["at", "jaigarh"],
+        "LOADED : ON THE WAY TO GULL":      ["leg", "to_gull"],
+        "LOADED : WAITING AT GULL":         ["at", "gull"],
+        "LOADED : ON THE WAY TO DHARAMTAR": ["leg", "to_dharamtar"],
+        "LOADED : WAITING AT DHARAMTAR":    ["at", "dharamtar"],
+        "UNDER DISCHARGE AT DHARAMTAR":     ["at", "dharamtar_berth"],
+        "EMPTY : WAITING AT DHARAMTAR":     ["at", "dharamtar"],
+        "EMPTY : ON THE WAY TO JAIGAD":     ["leg", "to_jaigarh"],
+    },
+}
 
 # Company-wide figures for the sidebar, from jswinfrastructure.in (home page
 # and About us, Oct 2026). Update when new annual figures are out.
