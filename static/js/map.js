@@ -328,9 +328,10 @@
       g.append('circle').attr('class', 'hit').attr('r', 12);
       g.append('circle').attr('class', 'ring').attr('r', 7);
       g.append('circle').attr('class', 'core').attr('r', 7);
+      g.append('line').attr('class', 'leader').attr('visibility', 'hidden');
       g.append('text').attr('class', 'name').attr('x', 14).attr('y', 5);
       g.append('text').attr('class', 'sub').attr('x', 14).attr('y', 20);
-      g.append('title');               // name on hover, for labels hidden by placeLabels
+      g.append('title');               // name on hover
       return g;
     });
     pm.attr('transform', d => `translate(${d.x},${d.y})`)
@@ -367,11 +368,10 @@
         });
       });
 
-    // While orbiting, re-place labels a few times a second, not every frame.
-    const now = performance.now();
-    if (!moving && (!orbit || now - lastPlaced > 400)) { placeLabels(pm, nodes, ho); lastPlaced = now; }
+    // Every settled frame, including while orbiting: labels keep their spot unless
+    // it gets blocked, so this is cheap and never lets two names drift into each other.
+    if (!moving) placeLabels(pm, nodes, ho);
   }
-  let lastPlaced = 0;
 
   // Label text never changes width, so measure each string once. Reading text
   // sizes forces a browser layout, which is what made animation frames stutter.
@@ -386,8 +386,22 @@
     return widths.get(t);
   }
 
-  // Greedy label placement: right of the marker, else left, else without the
-  // sub-line, else hidden (the name still shows on hover). Most important first.
+  // Label spots around a marker, nearest first: [x, baseline y, anchor]. Past the
+  // first four, a thin leader line ties the label back to its marker.
+  const SPOTS = [
+    [14, 5, 'start'], [-14, 5, 'end'], [0, -13, 'middle'], [0, 24, 'middle'],
+    [12, -10, 'start'], [-12, -10, 'end'], [12, 20, 'start'], [-12, 20, 'end'],
+    [34, -24, 'start'], [-34, -24, 'end'], [34, 34, 'start'], [-34, 34, 'end'],
+    [0, -40, 'middle'], [0, 52, 'middle'],
+    [58, -44, 'start'], [-58, -44, 'end'], [58, 56, 'start'], [-58, 56, 'end'],
+  ];
+  const NEAR = 4;                       // spots that need no leader line
+  const lastSpot = new Map();           // port code -> spot index, so labels don't hop while orbiting
+
+  // Label placement, most important port first. Every name is always shown: it
+  // takes the first free spot (keeping last time's spot while that is still free),
+  // drops its sub-line before moving far, and if the map is truly crowded takes
+  // the spot with the least overlap rather than disappearing.
   function placeLabels(pm, nodes, ho) {
     const edge = width - panelWidth() - 8;
     const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
@@ -399,26 +413,58 @@
     }
     const hoW = focused ? 0 : d3.max(gMarks.selectAll('g.ho-mark text').nodes(), textWidth) || 0;
     taken.push([ho[0] - 18 - hoW, ho[1] - 14, ho[0] + 8, ho[1] + 18]);    // head office + its label
+    // Page furniture drawn over the map: logo block, clock, zoom hint.
+    document.querySelectorAll('.brand, .clock, #zoom-hint:not([hidden])').forEach(n => {
+      const r = n.getBoundingClientRect();
+      taken.push([r.left - 6, r.top - 6, r.right + 6, r.bottom + 6]);
+    });
+
+    const subsShown = !document.body.classList.contains('panel-open');   // CSS hides subs then
     const rank = d => (d.p.code === window.PortPanel.current() ? 0 : d.p.pulse && d.p.pulse.ok ? 1 : d.p.status === 'Operational' ? 2 : 3);
     // Sort a copy, not the DOM, so keyboard tab order stays as listed in config.
     pm.nodes().sort((a, b) => rank(a.__data__) - rank(b.__data__)).forEach(el => {
       const d = el.__data__, g = d3.select(el), name = g.select('.name'), sub = g.select('.sub');
+      const leader = g.select('.leader');
       if (fn && d === fn) {             // the callout names it already
-        name.attr('visibility', 'hidden'); sub.attr('visibility', 'hidden');
+        name.attr('visibility', 'hidden'); sub.attr('visibility', 'hidden'); leader.attr('visibility', 'hidden');
         return;
       }
-      const hasSub = !!sub.text() && !document.body.classList.contains('panel-open');   // CSS hides subs then
-      const w = Math.max(textWidth(name.node()), hasSub ? textWidth(sub.node()) : 0);
+      const hasSub = subsShown && !!sub.text();
+      const nw = textWidth(name.node()), sw = hasSub ? textWidth(sub.node()) : 0;
+      const box = (i, withSub) => {
+        const [dx, dy, anchor] = SPOTS[i], w = Math.max(nw, withSub ? sw : 0);
+        const x0 = d.x + dx - (anchor === 'end' ? w : anchor === 'middle' ? w / 2 : 0);
+        return [x0, d.y + dy - 13, x0 + w, d.y + dy + (withSub ? 20 : 5)];   // glyph box incl. outline
+      };
+      const onScreen = b => b[0] > 4 && b[2] < edge && b[1] > 4 && b[3] < height - 4;
+      const free = b => onScreen(b) && !taken.some(t => hit(b, t));
+
+      // Candidates: near spots with the sub-line, then every spot without it.
       const tries = [];
-      [hasSub, false].forEach(withSub => [1, -1].forEach(side => {
-        const x0 = side > 0 ? d.x + 12 : d.x - 12 - w;
-        tries.push({ side, withSub, box: [x0, d.y - 8, x0 + w, d.y + (withSub ? 24 : 9)] });
-      }));
-      const ok = tries.find(t => t.box[0] > 4 && t.box[2] < edge && !taken.some(b => hit(t.box, b)));
-      if (ok) taken.push(ok.box);
-      g.selectAll('text').attr('x', ok && ok.side < 0 ? -14 : 14).attr('text-anchor', ok && ok.side < 0 ? 'end' : 'start');
-      name.attr('visibility', ok ? null : 'hidden');
-      sub.attr('visibility', ok && ok.withSub ? null : 'hidden');
+      if (hasSub) for (let i = 0; i < NEAR; i++) tries.push([i, true]);
+      SPOTS.forEach((_, i) => tries.push([i, false]));
+      const prev = lastSpot.get(d.p.code);
+      if (prev && (hasSub || !prev[1])) tries.unshift(prev);   // sticky: keep last time's spot if still free
+      let pick = tries.find(([i, s]) => free(box(i, s)));
+      if (!pick) {                      // crowded: least overlap, nearest first
+        let best = Infinity;
+        SPOTS.forEach((_, i) => {
+          const b = box(i, false);
+          const cost = (onScreen(b) ? 0 : 100) + taken.filter(t => hit(b, t)).length;
+          if (cost < best) { best = cost; pick = [i, false]; }
+        });
+      }
+      lastSpot.set(d.p.code, pick);
+      const [i, withSub] = pick, b = box(i, withSub), [dx, dy, anchor] = SPOTS[i];
+      taken.push(b);
+      name.attr('x', dx).attr('y', dy).attr('text-anchor', anchor).attr('visibility', null);
+      sub.attr('x', dx).attr('y', dy + 15).attr('text-anchor', anchor).attr('visibility', withSub ? null : 'hidden');
+      if (i < NEAR) { leader.attr('visibility', 'hidden'); return; }
+      // Leader: from the marker's edge to the nearest point of the label.
+      const ex = Math.min(Math.max(0, b[0] - d.x), b[2] - d.x), ey = Math.min(Math.max(0, b[1] - d.y), b[3] - d.y);
+      const len = Math.hypot(ex, ey) || 1;
+      leader.attr('visibility', null)
+        .attr('x1', ex / len * 9).attr('y1', ey / len * 9).attr('x2', ex).attr('y2', ey);
     });
   }
 

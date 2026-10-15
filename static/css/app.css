@@ -111,6 +111,7 @@ button { font: inherit; color: inherit; }
 .port-mark .ring { display: none; fill: none; stroke: var(--port); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: ring 2.6s ease-out infinite; }
 .port-mark.live .ring { display: block; }
 .port-mark .hit { fill: transparent; }
+.port-mark .leader { stroke: var(--text-3); stroke-width: 1; opacity: .8; }
 .port-mark .name { fill: var(--port); font-size: 15px; font-weight: 600; }
 .port-mark .sub  { fill: var(--text-2); font-size: 12.5px; }
 .port-mark:hover .core, .port-mark:focus-visible .core, .port-mark.active .core { fill: var(--port-hi); }
