@@ -173,9 +173,57 @@ window.PortPanel = (function () {
       ${body}</section>`;
   }
 
-  function secAtPort(a) {
+  // Vessels drawn on the port photo using each berth's box (image pixels) from
+  // vw_port_overview_berth_layout. Same rules as PORTMAN port_overview: boats
+  // stack outward from the berth face by bank tier, A/S innermost.
+  const PLOT_W = 440;                   // css px the plot is laid out for
+  function berthPlot(berths, src, size) {
+    const [iw, ih] = size, k = iw / PLOT_W;    // image px per css px
+    const fs = 12 * k, marks = [], boats = [], labels = [];
+    berths.forEach(b => {
+      const { cx, cy, w = 60, h = 60, angle = 0 } = b.box;
+      const th = angle * Math.PI / 180, cos = Math.cos(th), sin = Math.sin(th);
+      // Berth marker on the jetty side, clear of the boats.
+      const mx = cx + (w / 2 + 16) * cos, my = cy + (w / 2 + 16) * sin;
+      marks.push(`<g transform="translate(${mx},${my}) rotate(${angle})"><line class="bm" y1="${-h / 2}" y2="${h / 2}"/></g>
+        <text class="bl" x="${mx + 6 * k}" y="${my}" dy=".35em" font-size="${fs * .9}">${esc(String(b.berth).replace(/^BERTH\s*/i, 'B'))}</text>`);
+      const bargeLen = Math.min(Math.max(h * 0.7, 14), 80);
+      let edge = w / 2;
+      b.vessels.slice().sort((p, q) => p.tier - q.tier).forEach(v => {
+        const len = v.type === 'MBC' ? 80 : bargeLen, beam = Math.max(len * 0.3, 6);
+        const off = edge - beam / 2;
+        edge -= beam + 2;
+        const x = cx + off * cos, y = cy + off * sin;
+        const cls = v.status === 'Under Discharge' ? 'working' : v.status === 'Discharge Completed' ? 'done' : 'waiting';
+        const tip = `${v.name} (${v.type === 'MBC' ? 'MBC' : 'Barge'}, ${v.position}) at ${b.berth}
+${v.cargo}
+${mt(v.total)} MT, ${mt(v.balance)} MT left
+${v.status}`;
+        boats.push(`<rect class="boat ${cls}" x="${-beam / 2}" y="${-len / 2}" width="${beam}" height="${len}" rx="${beam / 2}"
+          transform="translate(${x},${y}) rotate(${angle})"><title>${esc(tip)}</title></rect>`);
+        labels.push({ x: x - beam / 2, y, name: v.name });
+      });
+    });
+    // Names in a column down the water side, pushed apart so none overlap.
+    const pitch = 16 * k, lx = 8 * k;
+    let prev = -Infinity;
+    labels.sort((a, b) => a.y - b.y).forEach(L => { L.ly = Math.max(L.y, prev + pitch); prev = L.ly; });
+    const names = labels.map(L => {
+      const end = lx + L.name.length * 6.4 * k;
+      return `<line class="ld" x1="${end + 3 * k}" y1="${L.ly}" x2="${L.x}" y2="${L.y}"/>
+        <text class="vl" x="${lx}" y="${L.ly}" dy=".35em" font-size="${fs}">${esc(L.name)}</text>`;
+    });
+    return `<figure class="berth-plot"><svg viewBox="0 0 ${iw} ${ih}" role="img" aria-label="Berth layout with vessels at each berth">
+      <image href="${esc(src)}" width="${iw}" height="${ih}"/>
+      ${marks.join('')}${names.join('')}${boats.join('')}</svg></figure>`;
+  }
+
+  function secAtPort(a, d) {
     const s = a.status;
-    const berths = a.berths.map(b => {
+    const placed = a.berths.filter(b => b.box);
+    const plot = d.image && d.image_size && placed.length ? berthPlot(placed, d.image, d.image_size) : '';
+    const unplaced = a.berths.filter(b => !plot || !b.box);   // berths missing from the layout
+    const berths = unplaced.map(b => {
       if (!b.vessels.length) return `<li class="berth empty"><div class="berth-name">${esc(b.berth)}</div></li>`;
       const vs = b.vessels.map(v => {
         const cls = v.status === 'Under Discharge' ? 'working' : v.status === 'Discharge Completed' ? 'done' : '';
@@ -199,7 +247,8 @@ window.PortPanel = (function () {
         <div class="count done"><span class="fig">${s['Discharge Completed'] || 0}</span><span>Completed</span></div>
       </div>
       <p class="note">Still to discharge at port: <strong>${mt(a.balance_to_discharge)} MT</strong></p>
-      ${a.berths.length ? `<ul class="berths">${berths}</ul>` : ''}
+      ${plot}
+      ${unplaced.length ? `<ul class="berths">${berths}</ul>` : ''}
     </section>`;
   }
 
@@ -288,7 +337,7 @@ window.PortPanel = (function () {
     if (d.throughput) {
       parts.push(secToday(d.throughput, d.shift), secMonth(d.throughput, d.op_date), secFY(d.throughput), secMix(d.throughput));
     }
-    if (d.at_port) parts.push(secAtPort(d.at_port));
+    if (d.at_port) parts.push(secAtPort(d.at_port, d));
     if (d.inbound) parts.push(secInbound(d.inbound));
     if (d.delays) parts.push(secDelays(d.delays));
     if (d.shift_info) parts.push(secShift(d.shift_info));

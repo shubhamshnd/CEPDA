@@ -183,7 +183,7 @@ def at_port(q):
         balance += float(r["balance"] or 0)
 
     berths = q.all("""
-        SELECT berth_name, berth_sequence
+        SELECT berth_name, berth_sequence, cx, cy, w, h, angle
         FROM {s}.vw_port_overview_berth_layout
         ORDER BY berth_sequence NULLS LAST, berth_name
     """)
@@ -203,6 +203,7 @@ def at_port(q):
             "type": (r["asset_type"] or "").upper(),
             "cargo": r["cargo"] or "",
             "position": r["position"] or "",
+            "tier": int(r["tier"] or 0),
             "status": r["status"] or "Waiting",
             "total": _f(total),
             "balance": _f(bal),
@@ -214,10 +215,15 @@ def at_port(q):
     for b in berths:
         key = (b["berth_name"] or "").strip().upper()
         seen.add(key)
-        ordered.append({"berth": b["berth_name"], "vessels": by_berth.get(key, [])})
+        ordered.append({
+            "berth": b["berth_name"],
+            "vessels": by_berth.get(key, []),
+            # Box on the port image, in image pixels; the panel plots vessels on it.
+            "box": {k: _f(b[k]) for k in ("cx", "cy", "w", "h", "angle")} if b["cx"] is not None else None,
+        })
     for key, vessels in by_berth.items():   # placed at a berth not in the layout
         if key not in seen:
-            ordered.append({"berth": key, "vessels": vessels})
+            ordered.append({"berth": key, "vessels": vessels, "box": None})
 
     return {
         "status": summary,

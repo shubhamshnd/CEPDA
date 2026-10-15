@@ -1,5 +1,7 @@
 import logging
 import os
+import struct
+from urllib.parse import urlencode
 
 from flask import Flask, abort, jsonify, render_template, url_for
 
@@ -11,14 +13,29 @@ app = Flask(__name__)
 app.json.sort_keys = False   # keep cargo mix ordered largest first
 
 
-def _image_url(loc):
+def _png_size(path):
+    # ponytail: PNG only (all local port images are PNG); anything else gets no berth plot.
+    with open(path, "rb") as f:
+        head = f.read(24)
+    return list(struct.unpack(">II", head[16:24])) if head[1:4] == b"PNG" else None
+
+
+def _image(loc):
+    """(url, [w, h]) for the port's own photo, else a Google satellite view, else (None, None)."""
     img = loc.get("image")
-    if img and os.path.exists(os.path.join(app.static_folder, img)):
-        return url_for("static", filename=img)
-    return None
+    path = img and os.path.join(app.static_folder, img)
+    if path and os.path.exists(path):
+        return url_for("static", filename=img), _png_size(path)
+    if config.GOOGLE_MAPS_KEY:
+        return "https://maps.googleapis.com/maps/api/staticmap?" + urlencode({
+            "center": f'{loc["lat"]},{loc["lng"]}', "zoom": 15, "size": "640x320", "scale": 2,
+            "maptype": "satellite", "key": config.GOOGLE_MAPS_KEY,
+        }), None
+    return None, None
 
 
 def _info(loc):
+    url, size = _image(loc)
     return {
         "code": loc["code"],
         "name": loc["name"],
@@ -26,7 +43,8 @@ def _info(loc):
         "status": loc.get("status", "Operational"),
         "overseas": bool(loc.get("overseas")),
         "connected": bool(loc.get("schema")),
-        "image": _image_url(loc),
+        "image": url,
+        "image_size": size,
     }
 
 

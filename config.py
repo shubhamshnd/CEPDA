@@ -12,6 +12,10 @@ load_dotenv()  # real env vars win; .env only fills gaps
 
 DATABASE_URL = os.environ["DATABASE_URL"]  # fail at startup, not on first query
 
+# Google Static Maps key: satellite view for locations without their own image.
+# Restrict it to your domain (HTTP referrer) in Google Cloud, it ships in page URLs.
+GOOGLE_MAPS_KEY = os.environ.get("GOOGLE_MAPS_KEY", "")
+
 # Where the arcs from every site converge.
 HEAD_OFFICE = {
     "name": "JSW Infrastructure HQ",

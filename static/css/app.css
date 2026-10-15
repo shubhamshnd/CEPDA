@@ -247,6 +247,20 @@ body.panel-open .clock { right: calc(var(--panel-w) + 24px); }
 .count.working .fig { color: var(--port); }
 .count.done .fig { color: var(--good); }
 
+/* berth plot: vessels drawn on the port image */
+.berth-plot { max-width: 440px; margin: 16px auto 0; }
+.berth-plot svg { width: 100%; height: auto; display: block; border-radius: 8px; }
+.berth-plot .bm { stroke: rgba(255, 255, 255, .7); stroke-width: 3; }
+.berth-plot .bl { fill: #fff; font-weight: 600; paint-order: stroke; stroke: rgba(0, 0, 0, .7); stroke-width: 4px; }
+.berth-plot .boat { stroke: rgba(0, 0, 0, .6); stroke-width: 1.5; cursor: help; }
+.berth-plot .boat.working { fill: var(--port); }
+.berth-plot .boat.waiting { fill: var(--wait); }
+.berth-plot .boat.done { fill: var(--good); }
+.berth-plot .vl { fill: #fff; paint-order: stroke; stroke: rgba(0, 0, 0, .75); stroke-width: 4px; }
+.berth-plot .ld { stroke: rgba(255, 255, 255, .45); stroke-width: 1.2; }
+.count .fig::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; background: var(--wait); }
+.count.working .fig::before { background: var(--port); }
+.count.done .fig::before { background: var(--good); }
 .berths { list-style: none; margin-top: 16px; display: grid; gap: 12px; }
 .berth-name { font-size: 13px; color: var(--text-3); margin-bottom: 4px; }
 .berth.empty .berth-name::after { content: ' is free'; }
