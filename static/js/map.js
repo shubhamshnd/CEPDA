@@ -1,4 +1,4 @@
-/* Fixed map of JSW Infrastructure sites and the reporting arcs into head office. */
+/* Map of JSW Infrastructure sites and the reporting arcs into head office. */
 (function () {
   const CFG = window.PORTNET;
   const REFRESH_MS = 5 * 60 * 1000;
@@ -21,15 +21,17 @@
   const projection = d3.geoMercator();
   const path = d3.geoPath(projection);
   let india = null, world = null, network = null, sites = [], transform = d3.zoomIdentity, width = 0, height = 0;
-  let sparks = [];
+  let sparks = [], userMoved = false;   // true once the user zooms or pans by hand
 
-  // The zoom behaviour only drives programmatic transitions; it is never bound
-  // to the svg, so users cannot pan or zoom.
-  const zoom = d3.zoom().on('zoom', (e) => {
-    transform = e.transform;
-    gMap.attr('transform', transform);
-    drawOverlay();
-  });
+  const zoom = d3.zoom()
+    .scaleExtent([0.8, 40])
+    .on('zoom', (e) => {
+      transform = e.transform;
+      if (e.sourceEvent) userMoved = true;
+      gMap.attr('transform', transform);
+      drawOverlay();
+    });
+  svg.call(zoom).on('dblclick.zoom', null);
 
   // ── helpers ───────────────────────────────────────────
   const screen = (lng, lat) => transform.apply(projection([lng, lat]));
@@ -52,11 +54,25 @@
       .translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
   }
 
-  // Every site plus head office, with room for labels (east) and the header (north).
+  // All of India plus every site, with room for labels (east) and the header (north-west).
+  const INDIA_BOUNDS = [[68, 6.5], [97.5, 37.2]];
   function homeView() {
-    const pts = network.ports.map(p => [p.lng, p.lat]).concat([[network.head_office.lng, network.head_office.lat]]);
+    const pts = network.ports.map(p => [p.lng, p.lat]);
     const lng = d3.extent(pts, d => d[0]), lat = d3.extent(pts, d => d[1]);
-    return fitTransform([[lng[0] - 2, lat[0] - 1.5], [lng[1] + 4, lat[1] + 5]], 60);  // extra north: header
+    return fitTransform([
+      [Math.min(lng[0] - 2, INDIA_BOUNDS[0][0]), Math.min(lat[0] - 1.5, INDIA_BOUNDS[0][1])],
+      [Math.max(lng[1] + 4, INDIA_BOUNDS[1][0]), Math.max(lat[1] + 5, INDIA_BOUNDS[1][1])],
+    ], 40);
+  }
+
+  // Back to the overview: everything visible, beside the panel if it is open.
+  function reset(ms) { userMoved = false; go(homeView(), ms); }
+
+  // Keep the user's zoom; just bring the site to the middle of the visible map.
+  function centreOn(s, ms) {
+    const [x, y] = projection([s.lng, s.lat]);
+    const k = transform.k;
+    go(d3.zoomIdentity.translate((width - panelWidth()) / 2 - x * k, height / 2 - y * k).scale(k), ms);
   }
 
   function go(t, ms) {
@@ -223,21 +239,21 @@
     const p = s.ports.find(x => x.code === code) || s.ports.find(x => x.connected) || s.ports[0];
     window.PortPanel.open(p, s.ports);
     drawOverlay();
-    go(homeView(), 700);               // slide the map into the left half
+    if (userMoved) centreOn(s, 700); else reset(700);   // slide the map into the left half
   }
   function openPort(code) {
     const s = sites.find(x => x.ports.some(p => p.code === code));
     if (s) openSite(s, code);
   }
   window.PortPanel.onSwitch = () => drawOverlay();
-  window.PortPanel.onClose = () => { drawOverlay(); go(homeView(), 700); };
+  window.PortPanel.onClose = () => { drawOverlay(); if (!userMoved) reset(700); };
 
   // ── header text + clock ───────────────────────────────
   function updateBrand() {
     const n = network.ports.length;
     const abroad = network.ports.filter(p => p.overseas).length;
     document.getElementById('brand-sub').textContent =
-      `${n} locations${abroad ? `, ${abroad} overseas` : ''}, reporting to ${network.head_office.city}`;
+      `${n} locations${abroad ? `, ${abroad} overseas` : ''}`;
   }
 
   function tick() {
@@ -266,7 +282,9 @@
     width = r.width; height = r.height;
     if (!india || !network) return;
     drawBase();
-    zoom.extent([[0, 0], [width, height]]);
+    zoom.extent([[0, 0], [width, height]])
+      .translateExtent([projection([40, 45]), projection([115, -5])]);   // can't pan off into empty ocean
+    userMoved = false;
     svg.interrupt().call(zoom.transform, homeView());
   }
 
@@ -308,6 +326,7 @@
     updateBrand();
     if (!reduceMotion) requestAnimationFrame(animate);
     window.addEventListener('resize', resize);
+    document.getElementById('btn-reset').onclick = () => reset(900);
 
     const wanted = new URLSearchParams(location.search).get('port');
     if (wanted) openPort(wanted.toUpperCase());

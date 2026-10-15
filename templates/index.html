@@ -17,7 +17,6 @@
 
   <header class="brand">
     <img class="brand-logo" src="{{ url_for('static', filename='img/jsw-logo.svg') }}" alt="JSW Infrastructure">
-    <h1>Port network</h1>
     <p id="brand-sub">Loading locations</p>
   </header>
 
@@ -26,12 +25,11 @@
     <span id="clock-meta"></span>
   </div>
 
-  <ul class="legend" aria-label="Legend">
-    <li><span class="key key-port"></span>Port or terminal, click for its summary</li>
-    <li><span class="key key-dev"></span>Under development</li>
-    <li><span class="key key-ho"></span>Head office</li>
-    <li><span class="key key-arc"></span>Reporting line</li>
-  </ul>
+  <div class="map-controls">
+    <button type="button" id="btn-reset">Reset view</button>
+  </div>
+
+
 
   <div id="map-error" class="map-error" hidden></div>
 </main>
