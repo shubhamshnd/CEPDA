@@ -7,6 +7,15 @@ from flask import Flask, abort, jsonify, render_template, url_for
 
 import config
 from summary import port_pulse, port_summary
+from summary_jnpa import jnpa_pulse, jnpa_summary
+
+# Which view set a location's schema holds -> its summary and map-pulse readers.
+READERS = {"jnpa": (jnpa_summary, jnpa_pulse)}
+DEFAULT_READERS = (port_summary, port_pulse)
+
+
+def _readers(loc):
+    return READERS.get(loc.get("dashboard"), DEFAULT_READERS)
 
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
@@ -68,7 +77,7 @@ def network():
             **_info(loc),
             "lat": loc["lat"],
             "lng": loc["lng"],
-            "pulse": port_pulse(loc) if loc.get("schema") else None,
+            "pulse": _readers(loc)[1](loc) if loc.get("schema") else None,
         })
     return jsonify({"head_office": config.HEAD_OFFICE, "company": config.COMPANY, "ports": ports})
 
@@ -78,7 +87,7 @@ def summary(code):
     loc = config.location(code)
     if not loc:
         abort(404)
-    data = port_summary(loc) if loc.get("schema") else {}
+    data = _readers(loc)[0](loc) if loc.get("schema") else {}
     return jsonify({**data, **_info(loc)})
 
 

@@ -3,6 +3,8 @@
 Every location lives in the same database (viewmirror); each one gets its own
 schema of mirrored views. To add a location, append an entry to LOCATIONS.
 Entries without a "schema" are drawn on the map but show no live data.
+"dashboard": "jnpa" reads PORTMAN2's jnpa_* liquid-terminal views (summary_jnpa.py);
+otherwise the schema holds PORTBIRD's vw_port_overview_* dry-bulk views (summary.py).
 "kind" is "port" for port concessions; everything else is a terminal.
 "image" is the panel banner; "berth_image" is the photo the berth layout boxes
 were drawn on (vessels are plotted over it).
@@ -38,7 +40,9 @@ LOCATIONS = [
     {"code": "PNP", "kind": "port", "name": "PNP Port", "region": "Raigad, Maharashtra",
      "lat": 18.7080, "lng": 72.9520},
     {"code": "JNPTL", "name": "JNPT Liquid Terminal", "region": "Navi Mumbai, Maharashtra",
-     "lat": 18.9500, "lng": 72.9500, "image": "img/jnpt_drone.jpg"},
+     "lat": 18.9500, "lng": 72.9500, "image": "img/jnpt_drone.jpg",
+     # ponytail: schema name assumed from the source DB (portman_jnpa); check the mirror's local schema.
+     "schema": "portman_jnpa", "dashboard": "jnpa", "berth_image": "img/jjltpljetty.png"},
     {"code": "JPL", "kind": "port", "name": "Jaigarh Port", "region": "Ratnagiri, Maharashtra",
      "lat": 17.2960, "lng": 73.2170, "image": "img/jpl_drone.jpg"},
     {"code": "MURBE", "kind": "port", "name": "Murbe Port", "region": "Palghar, Maharashtra",

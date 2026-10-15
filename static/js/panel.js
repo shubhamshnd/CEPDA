@@ -13,6 +13,11 @@ window.PortPanel = (function () {
     'SLAG': '#A98CC9',
     'FINISH GOODS': '#6CC4F2',
     'OTHERS': '#5A6C7A',
+    // liquid terminals (JNPA)
+    'Edible Oil': '#E3B04B',
+    'Chemical': '#A98CC9',
+    'POL': '#EF8A63',
+    'Other liquid': '#6CC4F2',
   };
   const TYPE_NAMES = {
     'IBRM': 'Iron-bearing raw material', 'CBRM': 'Carbon-bearing raw material',
@@ -180,16 +185,45 @@ window.PortPanel = (function () {
   // The photo is portrait; it is turned a quarter anticlockwise to sit landscape
   // in the panel: jetty on top, water below, Berth 1 on the right. Boats and berth
   // marks turn with it; names and berth labels are drawn upright on top.
+  // kind 'bulk': barges and MBCs (PORTBIRD). kind 'tanker': one tanker per berth,
+  // sized like PORTMAN2's jetty view (90% of the berth, beam a fifth of that).
   let plotBoats = [];                   // vessel + berth per boat, indexed by data-i
-  const STATUS = [['working', 'Discharging'], ['waiting', 'Waiting'], ['done', 'Completed']];
-  function berthPlot(berths, src, size) {
+  const PLOT_H = 380;                   // css px, tallest the berth photo is drawn
+  const KINDS = {
+    bulk: {
+      status: [['working', 'Discharging'], ['waiting', 'Waiting'], ['done', 'Completed']],
+      cls: v => v.status === 'Under Discharge' ? 'working' : v.status === 'Discharge Completed' ? 'done' : 'waiting',
+      size: (v, h) => { const len = v.type === 'MBC' ? 80 : Math.min(Math.max(h * 0.7, 14), 80); return [len, Math.max(len * 0.3, 6)]; },
+      what: v => v.type === 'MBC' ? 'MBC' : 'barge',
+      note: 'MBCs drawn longer than barges',
+    },
+    tanker: {
+      status: [['working', 'Under operation'], ['waiting', 'Awaiting ops'], ['done', 'Ops completed']],
+      cls: v => v.status === 'Under Operation' ? 'working' : v.status === 'Ops Completed' ? 'done' : 'waiting',
+      size: (v, h) => { const len = Math.max(h * 0.9, 20); return [len, Math.max(len * 0.2, 8)]; },
+      what: () => 'tanker',
+      note: '',
+    },
+  };
+  function berthPlot(berths, src, size, kind = 'bulk') {
+    const K = KINDS[kind];
     const [iw, ih] = size, W = ih, H = iw;                    // landscape after the turn
     const turn = (x, y) => [y, iw - x];                        // photo px -> landscape px
-    // Crop to the jetty, with room below it for names, so boats draw larger.
+    // Crop to the berths, with room either side for names, so boats draw larger.
     const xs = berths.map(b => b.box.cy), ys = berths.map(b => iw - b.box.cx);
-    const vx = Math.max(0, Math.min(...xs) - 160), vx1 = Math.min(W, Math.max(...xs) + 160);
-    const vy = Math.max(0, Math.min(...ys) - 170), vy1 = Math.min(H, Math.max(...ys) + 200);
-    const k = (vx1 - vx) / Math.max(320, el.body.clientWidth - 48);   // landscape px per css px
+    let vx = Math.max(0, Math.min(...xs) - 240), vx1 = Math.min(W, Math.max(...xs) + 240);
+    const vy = Math.max(0, Math.min(...ys) - 230), vy1 = Math.min(H, Math.max(...ys) + 230);
+    // Keep the crop landscape (at least 1.6:1): a short jetty on a small photo
+    // would otherwise be blown up into a narrow, blurry strip.
+    const need = Math.min(W, 1.6 * (vy1 - vy));
+    if (vx1 - vx < need) {
+      vx = Math.max(0, Math.min((vx + vx1) / 2 - need / 2, W - need));
+      vx1 = vx + need;
+    }
+    // Shown at most PLOT_H css px tall (narrower than the panel if need be), so the
+    // photo reads as an overview rather than a close-up.
+    const cssW = Math.min(el.body.clientWidth - 48, PLOT_H * (vx1 - vx) / (vy1 - vy));
+    const k = (vx1 - vx) / Math.max(320, cssW);                  // landscape px per css px
     const fs = 12 * k, turned = [], marks = [], labels = [], obstacles = [];
     const counts = { working: 0, waiting: 0, done: 0 };
     plotBoats = [];
@@ -200,48 +234,49 @@ window.PortPanel = (function () {
       const mx = cx + (w / 2 + 16) * cos, my = cy + (w / 2 + 16) * sin;
       turned.push(`<g transform="translate(${mx},${my}) rotate(${angle})"><line class="bm" y1="${-h / 2}" y2="${h / 2}"/></g>`);
       const [bx, by] = turn(mx + 14 * k, my);
+      const markY = turn(mx, my)[1];     // boats sit on the water side of this; names go further out
       marks.push(`<text class="bl" x="${bx}" y="${by}" dy=".35em" text-anchor="middle" font-size="${fs * .9}">${esc(String(b.berth).replace(/^BERTH\s*/i, 'B'))}</text>`);
-      const bargeLen = Math.min(Math.max(h * 0.7, 14), 80);
       let edge = w / 2;
-      b.vessels.slice().sort((p, q) => p.tier - q.tier).forEach(v => {
-        const len = v.type === 'MBC' ? 80 : bargeLen, beam = Math.max(len * 0.3, 6);
+      b.vessels.slice().sort((p, q) => (p.tier || 0) - (q.tier || 0)).forEach(v => {
+        const [len, beam] = K.size(v, h);
         const off = edge - beam / 2;
         edge -= beam + 2;
         const x = cx + off * cos, y = cy + off * sin;
-        const cls = v.status === 'Under Discharge' ? 'working' : v.status === 'Discharge Completed' ? 'done' : 'waiting';
+        const cls = K.cls(v);
         counts[cls]++;
-        const i = plotBoats.push({ v, berth: b.berth }) - 1;
-        turned.push(`<rect class="boat ${cls}" data-i="${i}" tabindex="0" role="button" aria-label="${esc(v.name)}, ${v.type === 'MBC' ? 'MBC' : 'barge'} at ${esc(b.berth)}"
+        const i = plotBoats.push({ v, berth: b.berth, kind }) - 1;
+        turned.push(`<rect class="boat ${cls}" data-i="${i}" tabindex="0" role="button" aria-label="${esc(v.name)}, ${K.what(v)} at ${esc(b.berth)}"
           x="${-beam / 2}" y="${-len / 2}" width="${beam}" height="${len}" rx="${beam / 2}"
           transform="translate(${x},${y}) rotate(${angle})"/>`);
         const [sx, sy] = turn(x, y);                           // boats lie roughly along the landscape x axis
         obstacles.push([sx - len / 2, sy - beam / 2, sx + len / 2, sy + beam / 2]);
-        labels.push({ x: sx, edge: sy + beam / 2, name: v.name, i });   // edge: the boat's water side
+        const dir = sy >= markY ? 1 : -1;  // +1: water is below the berth on screen, -1: above
+        labels.push({ x: sx, edge: sy + dir * beam / 2, dir, name: v.name, i });   // edge: the boat's water side
       });
     });
 
-    // Names below their boats (the water side), each in the nearest row that is
-    // free of other names and boats, with a leader line up to the boat.
+    // Names on the water side of their boats, each in the nearest row that is
+    // free of other names and boats, with a leader line back to the boat.
     const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
     const placed = obstacles.slice(), names = [];
     labels.sort((a, b) => a.x - b.x).forEach(L => {
       const half = L.name.length * 3.2 * k + 3 * k;            // ~6.4 px a character at 12 px
       const x = Math.min(Math.max(L.x, vx + half + 4 * k), vx1 - half - 4 * k);
-      let y = L.edge + 16 * k, box;
-      for (let r = 0; r < 14; r++, y += 15 * k) {
+      let y = L.edge + (L.dir > 0 ? 16 : -6) * k, box;
+      for (let r = 0; r < 14; r++, y += L.dir * 15 * k) {
         box = [x - half, y - 11 * k, x + half, y + 3 * k];
         if (!placed.some(p => hit(box, p))) break;
       }
       placed.push(box);
-      names.push(`<line class="ld" x1="${x}" y1="${y - 11 * k}" x2="${L.x}" y2="${L.edge}"/>
+      names.push(`<line class="ld" x1="${x}" y1="${y + (L.dir > 0 ? -11 : 3) * k}" x2="${L.x}" y2="${L.edge}"/>
         <text class="vl" data-i="${L.i}" x="${x}" y="${y}" text-anchor="middle" font-size="${fs}">${esc(L.name)}</text>`);
     });
 
-    return `<figure class="berth-plot"><svg viewBox="${vx} ${vy} ${vx1 - vx} ${vy1 - vy}" role="group" aria-label="Berth layout with vessels at each berth">
+    return `<figure class="berth-plot" style="max-width:${Math.round(cssW)}px"><svg viewBox="${vx} ${vy} ${vx1 - vx} ${vy1 - vy}" role="group" aria-label="Berth layout with vessels at each berth">
       <g transform="translate(0,${iw}) rotate(-90)"><image href="${esc(src)}" width="${iw}" height="${ih}"/>${turned.join('')}</g>
       ${marks.join('')}${names.join('')}</svg>
-      <figcaption class="plot-legend">${STATUS.map(([c, l]) =>
-        `<span><i class="${c}"></i>${l} <b>${counts[c]}</b></span>`).join('')}<span class="plot-note">MBCs drawn longer than barges</span></figcaption>
+      <figcaption class="plot-legend">${K.status.map(([c, l]) =>
+        `<span><i class="${c}"></i>${l} <b>${counts[c]}</b></span>`).join('')}${K.note ? `<span class="plot-note">${K.note}</span>` : ''}</figcaption>
     </figure>`;
   }
 
@@ -252,7 +287,36 @@ window.PortPanel = (function () {
   document.body.appendChild(tip);
   let tipFor = null;
 
-  function tipHtml({ v, berth }) {
+  function tankerTip(v, berth) {
+    const st = KINDS.tanker.cls(v);
+    const pct = v.total > 0 ? Math.min(100, Math.round(v.handled / v.total * 100)) : 0;
+    const etc = parseLocal(v.etc);
+    const row = (k, val) => val ? `<dt>${k}</dt><dd>${val}</dd>` : '';
+    const parcels = (v.parcels || []).map(p => {
+      const pp = p.target > 0 ? Math.min(100, Math.round(p.done / p.target * 100)) : 0;
+      return `<li><div class="bp-top"><span>${esc(p.parcel_no)} · ${esc(p.cargo)}</span><span>${mt(p.done)} / ${mt(p.target)}</span></div>
+        <div class="bt-meter"><i class="${p.state === 'Completed' ? 'done' : ''}" style="width:${pp}%"></i></div>
+        <small>${esc(p.state)}${p.pipeline ? ' · ' + esc(p.pipeline) : ''}${p.rate ? ` · ${mt(p.rate)} MT/h` : ''}</small></li>`;
+    }).join('');
+    return `<div class="bt-head"><b>${esc(v.name)}</b><span class="bt-type">Tanker</span></div>
+      <div class="bt-where">${esc(berth)}${v.via ? ', VIA ' + esc(v.via) : ''}</div>
+      <dl>
+        ${row('Cargo', esc(v.cargo))}
+        ${row('Consignee', esc(v.consigner))}
+        <dt>Quantity</dt><dd>${mt(v.total)} MT</dd>
+        <dt>Handled</dt><dd>${mt(v.handled)} MT</dd>
+        <dt>Balance</dt><dd>${mt(v.balance)} MT</dd>
+        ${row('Today', v.today ? `${mt(v.today)} MT` : '')}
+        ${row(v.rate_planned ? 'Rate (planned)' : 'Rate', v.rate ? `${mt(v.rate)} MT/h` : '')}
+        ${row('Expected done', etc ? hm(etc) + dayTag(etc, new Date()) : '')}
+      </dl>
+      <div class="bt-status ${st}"><i></i>${esc(v.status)}<span>${pct}% done</span></div>
+      <div class="bt-meter"><i class="${st}" style="width:${pct}%"></i></div>
+      ${parcels ? `<ul class="bt-parcels">${parcels}</ul>` : ''}`;
+  }
+
+  function tipHtml({ v, berth, kind }) {
+    if (kind === 'tanker') return tankerTip(v, berth);
     const st = v.status === 'Under Discharge' ? 'working' : v.status === 'Discharge Completed' ? 'done' : 'waiting';
     const pct = v.done_pct != null ? v.done_pct : 0;
     return `<div class="bt-head"><b>${esc(v.name)}</b><span class="bt-type">${v.type === 'MBC' ? 'MBC' : 'Barge'}</span></div>
@@ -281,6 +345,7 @@ window.PortPanel = (function () {
     if (tipFor !== i) {
       tipFor = i;
       tip.innerHTML = tipHtml(plotBoats[i]);
+      tip.classList.toggle('wide', plotBoats[i].kind === 'tanker');
       el.body.querySelectorAll('.berth-plot .hot').forEach(n => n.classList.remove('hot'));
       el.body.querySelectorAll(`.berth-plot [data-i="${i}"]`).forEach(n => n.classList.add('hot'));
     }
@@ -306,6 +371,73 @@ window.PortPanel = (function () {
   });
   el.body.addEventListener('focusout', hideTip);
   el.panel.querySelector('.panel-scroll').addEventListener('scroll', hideTip, { passive: true });
+
+  // ── liquid terminal (JNPA) sections ──────────────────
+  function needFoot(p) {
+    if (p.needed_per_day == null) return '';
+    if (p.needed_per_day <= 0) return 'Target met.';
+    return p.days_left === 1 ? `Needs <strong>${mt(p.needed_per_day)} MT</strong> today to reach the target.`
+      : `Needs <strong>${mt(p.needed_per_day)} MT</strong> a day for the remaining ${p.days_left} days.`;
+  }
+
+  function secLiquid(t) {
+    const today = `<section class="sec">
+      <h3>Pumped today <small>op-day from 07:00</small></h3>
+      <div><span class="fig fig-xl">${mt(t.today.total)}</span><span class="unit">MT</span></div>
+      <p class="note">Yesterday: <strong>${mt(t.yesterday.total)} MT</strong>.</p>
+    </section>`;
+    const fy = progressBlock('Financial year', t.fy.label, t.fy.total, t.fy.target, t.fy.share, needFoot(t.fy))
+      .replace('</section>', `<p class="note">All-time handled at this terminal: <strong>${mt(t.cumulative)} MT</strong>.</p></section>`);
+    return today + progressBlock('This month', t.month.label, t.month.total, t.month.target, t.month.share, needFoot(t.month))
+      + fy + secMix(t);
+  }
+
+  function secJetty(j, d, bob) {
+    const placed = j.berths.filter(b => b.box);
+    const plot = d.berth_image && d.berth_image_size && placed.length
+      ? berthPlot(placed, d.berth_image, d.berth_image_size, 'tanker') : '';
+    const listed = j.berths.filter(b => !plot || !b.box);   // berths without a box on the photo
+    return `<section class="sec">
+      <h3>At the jetty <small>${j.occupied_berths} of ${j.berths.length} occupied</small></h3>
+      ${bob != null ? `<p class="note">Balance on board: <strong>${mt(bob)} MT</strong></p>` : ''}
+      ${plot}
+      ${listed.length ? `<ul class="rows">${listed.map(b => `<li><span>${esc(b.berth)}</span>
+        <span class="r">${b.vessels.length ? b.vessels.map(v => esc(v.name)).join(', ') : '<span class="muted">Free</span>'}</span>
+        ${b.vessels.map(v => `<span class="sub">${esc(v.status)}</span><span class="sub r">${mt(v.balance)} MT left</span>`).join('')}</li>`).join('')}</ul>` : ''}
+    </section>`;
+  }
+
+  function secWaiting(w) {
+    if (!w.count) {
+      return `<section class="sec"><h3>Waiting and expected</h3><p class="empty-note">No tankers waiting or expected.</p></section>`;
+    }
+    return `<section class="sec">
+      <h3>Waiting and expected <small>${w.anchored} at anchorage, ${w.count - w.anchored} expected</small></h3>
+      <ul class="rows">${w.vessels.map(v => {
+        const at = parseLocal(v.anchored);
+        return `<li><span>${esc(v.name)}<span class="tag">${v.state === 'At Anchorage' ? 'Anchorage' : 'Expected'}</span></span>
+          <span class="r">${v.qty ? mt(v.qty) + ' MT' : ''}</span>
+          <span class="sub">${esc(v.cargo)}</span>
+          <span class="sub r">${at ? 'Anchored ' + ago(at) : esc(v.agent)}</span></li>`;
+      }).join('')}</ul>
+      ${w.count > w.vessels.length ? `<p class="note muted">And ${w.count - w.vessels.length} more.</p>` : ''}
+    </section>`;
+  }
+
+  function secPipelines(list) {
+    const pumping = list.filter(p => p.state === 'pumping').length;
+    const shown = list.filter(p => p.state !== 'inactive');
+    const hydro = p => p.hydro === 'expired' ? '<span class="tag bad">Hydro test expired</span>'
+      : p.hydro === 'due' ? `<span class="tag warn">Hydro test due in ${p.hydro_days} d</span>` : '';
+    return `<section class="sec">
+      <h3>Pipelines <small>${pumping} pumping of ${list.length}</small></h3>
+      <ul class="pipes">${shown.map(p => `<li class="${esc(p.state)}">
+        <div class="pp-top"><span class="pp-dot"></span><b>${esc(p.name)}</b>${hydro(p)}<span class="pp-q">${mt(p.month_qty)} MT this month</span></div>
+        ${p.live ? `<div class="pp-live">${esc(p.live)}</div>` : ''}
+        ${p.terminals ? `<div class="pp-term">To ${esc(p.terminals)}</div>` : ''}</li>`).join('')}</ul>
+      ${list.length > shown.length ? `<p class="note muted">${list.length - shown.length} inactive pipelines not shown.</p>` : ''}
+    </section>`;
+  }
 
   function secAtPort(a, d) {
     const placed = a.berths.filter(b => b.box);
@@ -423,11 +555,18 @@ window.PortPanel = (function () {
       return;
     }
     const parts = [secFacts(d.facts, d)];
-    if (d.throughput) {
-      parts.push(secToday(d.throughput, d.shift), secMonth(d.throughput, d.op_date), secFY(d.throughput), secMix(d.throughput));
+    if (d.profile === 'liquid') {          // JNPA: tankers, parcels, pipelines
+      if (d.liquid) parts.push(secLiquid(d.liquid));
+      if (d.jetty) parts.push(secJetty(d.jetty, d, d.liquid ? d.liquid.balance_on_board : null));
+      if (d.waiting) parts.push(secWaiting(d.waiting));
+      if (d.pipelines) parts.push(secPipelines(d.pipelines));
+    } else {                               // dry bulk: barges and MBCs
+      if (d.throughput) {
+        parts.push(secToday(d.throughput, d.shift), secMonth(d.throughput, d.op_date), secFY(d.throughput), secMix(d.throughput));
+      }
+      if (d.at_port) parts.push(secAtPort(d.at_port, d));
+      if (d.inbound) parts.push(secInbound(d.inbound));
     }
-    if (d.at_port) parts.push(secAtPort(d.at_port, d));
-    if (d.inbound) parts.push(secInbound(d.inbound));
     if (d.delays) parts.push(secDelays(d.delays));
     if (d.tide || d.weather) parts.push(secTideWeather(d.tide, d.weather, d.as_of));
     if (d.mbc_fleet) parts.push(secFleet(d.mbc_fleet));
@@ -445,7 +584,7 @@ window.PortPanel = (function () {
     const b = e.target.closest('[data-mix]');
     if (!b || !data) return;
     mixPeriod = b.dataset.mix;
-    document.getElementById('sec-mix').outerHTML = secMix(data.throughput);
+    document.getElementById('sec-mix').outerHTML = secMix(data.liquid || data.throughput);
   });
 
   async function load() {

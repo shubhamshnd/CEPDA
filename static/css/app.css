@@ -331,7 +331,7 @@ body.panel-open .support { right: calc(var(--panel-w) + 24px); }
 /* at port */
 
 /* berth plot: vessels drawn on the port image */
-.berth-plot { margin-top: 16px; }
+.berth-plot { margin: 16px auto 0; }
 .berth-plot svg { width: 100%; height: auto; display: block; border-radius: 8px; }
 .berth-plot .bm { stroke: rgba(255, 255, 255, .7); stroke-width: 3; }
 .berth-plot .bl { fill: #fff; font-weight: 600; paint-order: stroke; stroke: rgba(0, 0, 0, .7); stroke-width: 4px; }
@@ -379,6 +379,23 @@ body.panel-open .support { right: calc(var(--panel-w) + 24px); }
 .boat-tip .bt-meter { height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; margin-top: 6px; }
 .boat-tip .bt-meter i { display: block; height: 100%; background: var(--port); }
 .boat-tip .bt-meter i.done { background: var(--good); }
+.boat-tip.wide { width: 300px; }
+.boat-tip .bt-parcels { list-style: none; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--rule); display: grid; gap: 8px; }
+.boat-tip .bp-top { display: flex; justify-content: space-between; gap: 10px; color: var(--text); }
+.boat-tip .bt-parcels small { color: var(--text-3); font-size: 11.5px; }
+
+/* pipelines (liquid terminals) */
+.pipes { list-style: none; display: grid; gap: 10px; }
+.pipes li { font-size: 13.5px; padding-left: 2px; }
+.pp-top { display: flex; align-items: center; gap: 8px; }
+.pp-top b { font-weight: 600; }
+.pp-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wait); flex: none; }
+.pipes li.pumping .pp-dot { background: var(--port); box-shadow: 0 0 0 3px rgba(54, 195, 255, .25); }
+.pp-q { margin-left: auto; color: var(--text-2); font-size: 12.5px; white-space: nowrap; }
+.pp-live { color: var(--text); font-size: 13px; margin: 2px 0 0 16px; }
+.pp-term { color: var(--text-3); font-size: 12.5px; margin: 1px 0 0 16px; }
+.tag.bad { background: rgba(239, 138, 99, .18); color: var(--short); }
+.tag.warn { background: rgba(227, 176, 75, .18); color: #E3B04B; }
 /* at a glance */
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
 .stat { background: var(--surface-2); border-radius: 6px; padding: 10px 12px; }
