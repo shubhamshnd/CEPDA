@@ -14,10 +14,12 @@
 <main id="stage">
   <svg id="map" role="img" aria-label="Map of JSW Infrastructure ports and terminals in India and the UAE, linked to the Mumbai head office"></svg>
 
-  <header class="brand">
-    <img class="brand-logo" src="{{ url_for('static', filename='img/jsw-logo.svg') }}" alt="JSW Infrastructure">
-    <p id="brand-sub">Loading locations</p>
-  </header>
+  <aside id="side" class="side" aria-label="JSW Infrastructure at a glance">
+    <div class="side-head">
+      <img class="brand-logo" src="{{ url_for('static', filename='img/jsw-logo.svg') }}" alt="JSW Infrastructure">
+    </div>
+    <div id="side-body" class="side-body"><p class="side-tag">Loading locations</p></div>
+  </aside>
 
   <div class="clock" aria-live="off">
     <span id="clock-time">--:--</span>
@@ -59,6 +61,7 @@
   };
 </script>
 <script src="{{ url_for('static', filename='js/panel.js') }}"></script>
+<script src="{{ url_for('static', filename='js/side.js') }}"></script>
 <script src="{{ url_for('static', filename='js/map.js') }}"></script>
 </body>
 </html>

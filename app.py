@@ -44,6 +44,7 @@ def _info(loc):
         "name": loc["name"],
         "region": loc.get("region", ""),
         "status": loc.get("status", "Operational"),
+        "kind": loc.get("kind", "terminal"),
         "overseas": bool(loc.get("overseas")),
         "connected": bool(loc.get("schema")),
         "facts": config.FACTS.get(loc["code"]),
@@ -69,7 +70,7 @@ def network():
             "lng": loc["lng"],
             "pulse": port_pulse(loc) if loc.get("schema") else None,
         })
-    return jsonify({"head_office": config.HEAD_OFFICE, "ports": ports})
+    return jsonify({"head_office": config.HEAD_OFFICE, "company": config.COMPANY, "ports": ports})
 
 
 @app.route("/api/ports/<code>/summary")

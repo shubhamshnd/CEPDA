@@ -3,6 +3,7 @@
 Every location lives in the same database (viewmirror); each one gets its own
 schema of mirrored views. To add a location, append an entry to LOCATIONS.
 Entries without a "schema" are drawn on the map but show no live data.
+"kind" is "port" for port concessions; everything else is a terminal.
 "image" is the panel banner; "berth_image" is the photo the berth layout boxes
 were drawn on (vessels are plotted over it).
 """
@@ -31,18 +32,18 @@ HEAD_OFFICE = {
 DEV = "Under development"
 LOCATIONS = [
     # ── Ports ──
-    {"code": "DPPL", "name": "Dharamtar Port", "region": "Raigad, Maharashtra",
+    {"code": "DPPL", "kind": "port", "name": "Dharamtar Port", "region": "Raigad, Maharashtra",
      "lat": 18.710037, "lng": 73.027488, "schema": "portbird_dppl",
      "image": "img/dppl_drone.png", "berth_image": "img/dppl.png"},
-    {"code": "PNP", "name": "PNP Port", "region": "Raigad, Maharashtra",
+    {"code": "PNP", "kind": "port", "name": "PNP Port", "region": "Raigad, Maharashtra",
      "lat": 18.7080, "lng": 72.9520},
     {"code": "JNPTL", "name": "JNPT Liquid Terminal", "region": "Navi Mumbai, Maharashtra",
      "lat": 18.9500, "lng": 72.9500, "image": "img/jnpt_drone.jpg"},
-    {"code": "JPL", "name": "Jaigarh Port", "region": "Ratnagiri, Maharashtra",
+    {"code": "JPL", "kind": "port", "name": "Jaigarh Port", "region": "Ratnagiri, Maharashtra",
      "lat": 17.2960, "lng": 73.2170, "image": "img/jpl_drone.jpg"},
-    {"code": "MURBE", "name": "Murbe Port", "region": "Palghar, Maharashtra",
+    {"code": "MURBE", "kind": "port", "name": "Murbe Port", "region": "Palghar, Maharashtra",
      "lat": 19.7900, "lng": 72.7000, "status": DEV},
-    {"code": "KENI", "name": "Keni Port", "region": "Uttara Kannada, Karnataka",
+    {"code": "KENI", "kind": "port", "name": "Keni Port", "region": "Uttara Kannada, Karnataka",
      "lat": 14.6600, "lng": 74.2800, "status": DEV},
     # ── Terminals ──
     {"code": "SWPL", "name": "South West Port", "region": "Mormugao, Goa",
@@ -61,7 +62,7 @@ LOCATIONS = [
      "lat": 20.2640, "lng": 86.6760, "image": "img/paradip-iron-ore_drone.jpg"},
     {"code": "PEQCT", "name": "Paradip East Quay Coal Terminal", "region": "Paradip, Odisha",
      "lat": 20.2680, "lng": 86.6800, "image": "img/paradip-east-quay-coal_drone.jpg"},
-    {"code": "JATADHAR", "name": "Jatadhar Port", "region": "Jagatsinghpur, Odisha",
+    {"code": "JATADHAR", "kind": "port", "name": "Jatadhar Port", "region": "Jagatsinghpur, Odisha",
      "lat": 20.1800, "lng": 86.6200, "status": DEV},
     {"code": "KCT", "name": "Kolkata Container Terminal", "region": "Kolkata, West Bengal",
      "lat": 22.5400, "lng": 88.3100, "status": DEV},
@@ -73,6 +74,23 @@ LOCATIONS = [
     {"code": "DIBBA", "name": "Dibba Port", "region": "Dibba, UAE",
      "lat": 25.5950, "lng": 56.2750, "overseas": True},
 ]
+
+# Company-wide figures for the sidebar, from jswinfrastructure.in (home page
+# and About us, Oct 2026). Update when new annual figures are out.
+COMPANY = {
+    "source": "https://www.jswinfrastructure.in/",
+    "tagline": "India's second-largest private port operator",
+    "kpis": [
+        {"value": "183", "unit": "MTPA", "label": "Operational capacity"},
+        {"value": "122", "unit": "MMT", "label": "Cargo handled"},
+        {"value": "₹5,361", "unit": "Cr", "label": "Operating revenue"},
+        {"value": "₹1,547", "unit": "Cr", "label": "Profit after tax"},
+    ],
+    "period": "FY2026",
+    "target": {"now": 183, "goal": 400, "by": "2030"},   # MTPA
+    "footprint": "3 port concessions and 11 terminals across Maharashtra, Goa, "
+                 "Karnataka, Tamil Nadu, Odisha and the UAE",
+}
 
 # At-a-glance facts for the panel and the map's "Now viewing" callout. Taken from
 # each port's page on jswinfrastructure.in (Oct 2026); Jaigarh and South West Port

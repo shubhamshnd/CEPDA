@@ -24,6 +24,7 @@
   const path = d3.geoPath(projection).digits(2);   // 0.01 px is plenty, and shrinks the path strings
   let india = null, world = null, network = null, transform = d3.zoomIdentity, width = 0, height = 0;
   let sparks = [], focused = null;      // port the map is zoomed to, null = overview
+  let highlight = null, hovered = null; // from the sidebar: a group of codes, and one hovered code
   const SITE_SPAN = 5;                  // degrees shown around a clicked port
   const STACK_PX = 18, STACK_GAP = 20;  // ports closer than this on screen are stacked in a column
   const TILT = 55, PERSPECTIVE = 1800;  // camera when zoomed to a port: tilt (deg) and perspective depth (px)
@@ -99,15 +100,22 @@
       ? document.getElementById('panel').offsetWidth : 0;
   }
 
+  // Room the sidebar takes on the left. It slides away while the port panel is open.
+  function sideInset() {
+    const s = document.getElementById('side');
+    return document.body.classList.contains('panel-open') || window.innerWidth <= 760
+      ? 0 : s.offsetLeft + s.offsetWidth;
+  }
+
   function fitTransform(bounds, pad) {
     // bounds: [[minLng, minLat], [maxLng, maxLat]]
     const a = projection(bounds[0]), b = projection(bounds[1]);
     const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]);
     const y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]);
-    const w = width - panelWidth();
+    const left = sideInset(), w = width - panelWidth() - left;
     const k = Math.min((w - pad * 2) / (x1 - x0), (height - pad * 2) / (y1 - y0));
     return d3.zoomIdentity
-      .translate(w / 2, height / 2)
+      .translate(left + w / 2, height / 2)
       .scale(k)
       .translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
   }
@@ -131,7 +139,7 @@
   const currentView = () => (focused ? portView(focused) : homeView());
 
   // Camera settings: tilted and centred on the visible map when zoomed to a port.
-  const camFocus = () => ({ tilt: TILT, ox: (width - panelWidth()) / 2, oy: height / 2 });
+  const camFocus = () => ({ tilt: TILT, ox: sideInset() + (width - panelWidth() - sideInset()) / 2, oy: height / 2 });
   const zoomHint = document.getElementById('zoom-hint');
 
   // Slow orbit while zoomed to a port.
@@ -287,10 +295,11 @@
     const arcs = [];
     if (arcsLive) nodes.forEach(n => {
       const g = arcGeometry([n.x, n.y], ho, 0.42);
-      arcs.push({ key: n.p.code, d: g.d, cls: 'main' + (isDev(n.p) ? ' dev' : '') });
+      const dim = highlight && !highlight.has(n.p.code) ? ' dim' : '';
+      arcs.push({ key: n.p.code, d: g.d, cls: 'main' + (isDev(n.p) ? ' dev' : '') + dim });
       if (!isDev(n.p)) {
-        arcs.push({ key: n.p.code + 'flow', d: g.d, cls: 'flow' });
-        sparks.push({ key: n.p.code, p0: [n.x, n.y], c: g.c, p1: ho });
+        arcs.push({ key: n.p.code + 'flow', d: g.d, cls: 'flow' + dim });
+        if (!dim) sparks.push({ key: n.p.code, p0: [n.x, n.y], c: g.c, p1: ho });   // dimmed lines carry no spark
       }
     });
     if (arcsLive) {
@@ -337,7 +346,10 @@
     pm.attr('transform', d => `translate(${d.x},${d.y})`)
       .classed('live', d => !!(d.p.pulse && d.p.pulse.ok))
       .classed('dev', d => isDev(d.p))
-      .classed('active', d => d.p.code === current);
+      .classed('active', d => d.p.code === current)
+      .classed('dim', d => !!highlight && !highlight.has(d.p.code))
+      .classed('hl', d => !!highlight && highlight.has(d.p.code))
+      .classed('hover', d => d.p.code === hovered);
     pm.select('.name').text(d => d.p.name);
     pm.select('title').text(d => d.p.name);
     pm.select('.sub').text(d => {
@@ -414,18 +426,19 @@
     const hoW = focused ? 0 : d3.max(gMarks.selectAll('g.ho-mark text').nodes(), textWidth) || 0;
     taken.push([ho[0] - 18 - hoW, ho[1] - 14, ho[0] + 8, ho[1] + 18]);    // head office + its label
     // Page furniture drawn over the map: logo block, clock, zoom hint.
-    document.querySelectorAll('.brand, .clock, #zoom-hint:not([hidden])').forEach(n => {
+    document.querySelectorAll('#side, .clock, #zoom-hint:not([hidden])').forEach(n => {
       const r = n.getBoundingClientRect();
       taken.push([r.left - 6, r.top - 6, r.right + 6, r.bottom + 6]);
     });
 
     const subsShown = !document.body.classList.contains('panel-open');   // CSS hides subs then
-    const rank = d => (d.p.code === window.PortPanel.current() ? 0 : d.p.pulse && d.p.pulse.ok ? 1 : d.p.status === 'Operational' ? 2 : 3);
+    const rank = d => (d.p.code === window.PortPanel.current() ? 0 : highlight && highlight.has(d.p.code) ? 1
+      : d.p.pulse && d.p.pulse.ok ? 2 : d.p.status === 'Operational' ? 3 : 4);
     // Sort a copy, not the DOM, so keyboard tab order stays as listed in config.
     pm.nodes().sort((a, b) => rank(a.__data__) - rank(b.__data__)).forEach(el => {
       const d = el.__data__, g = d3.select(el), name = g.select('.name'), sub = g.select('.sub');
       const leader = g.select('.leader');
-      if (fn && d === fn) {             // the callout names it already
+      if ((fn && d === fn) || (highlight && !highlight.has(d.p.code) && d.p.code !== hovered)) {   // callout names it / dimmed
         name.attr('visibility', 'hidden'); sub.attr('visibility', 'hidden'); leader.attr('visibility', 'hidden');
         return;
       }
@@ -497,13 +510,19 @@
   // Stays zoomed (and orbiting) until double-click or Esc; re-centres on the wider map.
   window.PortPanel.onClose = () => { drawOverlay(); go(currentView(), 700, focused ? camFocus() : {}); };
 
-  // ── header text + clock ───────────────────────────────
-  function updateBrand() {
-    const n = network.ports.length;
-    const abroad = network.ports.filter(p => p.overseas).length;
-    document.getElementById('brand-sub').textContent =
-      `${n} locations${abroad ? `, ${abroad} overseas` : ''}`;
-  }
+  // What the sidebar can do to the map.
+  window.PortMap = {
+    highlight(codes) { highlight = codes ? new Set(codes) : null; drawOverlay(); },
+    hover(code) {
+      if (hovered === code) return;
+      hovered = code;
+      gMarks.selectAll('g.port-mark').classed('hover', d => d.p.code === hovered);
+      if (highlight) drawOverlay();     // a dimmed port shows its name while hovered
+    },
+    open: code => openPort(code),
+  };
+
+  // ── clock ─────────────────────────────────────────────
 
   function tick() {
     const now = new Date();
@@ -553,7 +572,7 @@
     try {
       network = await loadNetwork();
       tagStates();
-      updateBrand();
+      window.SidePanel.render(network);
       restack = true;
       drawOverlay();
     } catch (e) { console.warn('refresh failed', e); }
@@ -574,8 +593,8 @@
       return;
     }
     tagStates();
+    window.SidePanel.render(network);  // before resize: the map is fitted beside the sidebar
     resize();
-    updateBrand();
     if (!reduceMotion) requestAnimationFrame(animate);
     window.addEventListener('resize', resize);
     // Double-click anywhere on the map (not a port) or Esc zooms back out.
