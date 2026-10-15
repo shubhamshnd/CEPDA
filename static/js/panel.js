@@ -177,19 +177,18 @@ window.PortPanel = (function () {
   // Vessels drawn on the port photo using each berth's box (image pixels) from
   // vw_port_overview_berth_layout. Same rules as PORTMAN port_overview: boats
   // stack outward from the berth face by bank tier, A/S innermost.
-  // The photo is portrait; it is laid landscape in the panel by swapping x and y
-  // (a quarter turn clockwise, then flipped left-right): water on top, Berth 1 on
-  // the right. Boats and berth marks go with it; names and berth labels are drawn
-  // upright on top.
+  // The photo is portrait; it is turned a quarter anticlockwise to sit landscape
+  // in the panel: jetty on top, water below, Berth 1 on the right. Boats and berth
+  // marks turn with it; names and berth labels are drawn upright on top.
   let plotBoats = [];                   // vessel + berth per boat, indexed by data-i
   const STATUS = [['working', 'Discharging'], ['waiting', 'Waiting'], ['done', 'Completed']];
   function berthPlot(berths, src, size) {
     const [iw, ih] = size, W = ih, H = iw;                    // landscape after the turn
-    const turn = (x, y) => [y, x];                             // photo px -> landscape px
-    // Crop to the jetty, with room above it for names, so boats draw larger.
-    const xs = berths.map(b => b.box.cy), ys = berths.map(b => b.box.cx);
+    const turn = (x, y) => [y, iw - x];                        // photo px -> landscape px
+    // Crop to the jetty, with room below it for names, so boats draw larger.
+    const xs = berths.map(b => b.box.cy), ys = berths.map(b => iw - b.box.cx);
     const vx = Math.max(0, Math.min(...xs) - 160), vx1 = Math.min(W, Math.max(...xs) + 160);
-    const vy = Math.max(0, Math.min(...ys) - 200), vy1 = Math.min(H, Math.max(...ys) + 170);
+    const vy = Math.max(0, Math.min(...ys) - 170), vy1 = Math.min(H, Math.max(...ys) + 200);
     const k = (vx1 - vx) / Math.max(320, el.body.clientWidth - 48);   // landscape px per css px
     const fs = 12 * k, turned = [], marks = [], labels = [], obstacles = [];
     const counts = { working: 0, waiting: 0, done: 0 };
@@ -217,29 +216,29 @@ window.PortPanel = (function () {
           transform="translate(${x},${y}) rotate(${angle})"/>`);
         const [sx, sy] = turn(x, y);                           // boats lie roughly along the landscape x axis
         obstacles.push([sx - len / 2, sy - beam / 2, sx + len / 2, sy + beam / 2]);
-        labels.push({ x: sx, top: sy - beam / 2, name: v.name, i });
+        labels.push({ x: sx, edge: sy + beam / 2, name: v.name, i });   // edge: the boat's water side
       });
     });
 
-    // Names above their boats (the water side), each in the lowest row that is
-    // free of other names and boats, with a leader line down to the boat.
+    // Names below their boats (the water side), each in the nearest row that is
+    // free of other names and boats, with a leader line up to the boat.
     const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
     const placed = obstacles.slice(), names = [];
     labels.sort((a, b) => a.x - b.x).forEach(L => {
       const half = L.name.length * 3.2 * k + 3 * k;            // ~6.4 px a character at 12 px
       const x = Math.min(Math.max(L.x, vx + half + 4 * k), vx1 - half - 4 * k);
-      let y = L.top - 12 * k, box;
-      for (let r = 0; r < 14; r++, y -= 15 * k) {
+      let y = L.edge + 16 * k, box;
+      for (let r = 0; r < 14; r++, y += 15 * k) {
         box = [x - half, y - 11 * k, x + half, y + 3 * k];
         if (!placed.some(p => hit(box, p))) break;
       }
       placed.push(box);
-      names.push(`<line class="ld" x1="${x}" y1="${y + 3 * k}" x2="${L.x}" y2="${L.top}"/>
+      names.push(`<line class="ld" x1="${x}" y1="${y - 11 * k}" x2="${L.x}" y2="${L.edge}"/>
         <text class="vl" data-i="${L.i}" x="${x}" y="${y}" text-anchor="middle" font-size="${fs}">${esc(L.name)}</text>`);
     });
 
     return `<figure class="berth-plot"><svg viewBox="${vx} ${vy} ${vx1 - vx} ${vy1 - vy}" role="group" aria-label="Berth layout with vessels at each berth">
-      <g transform="matrix(0,1,1,0,0,0)"><image href="${esc(src)}" width="${iw}" height="${ih}"/>${turned.join('')}</g>
+      <g transform="translate(0,${iw}) rotate(-90)"><image href="${esc(src)}" width="${iw}" height="${ih}"/>${turned.join('')}</g>
       ${marks.join('')}${names.join('')}</svg>
       <figcaption class="plot-legend">${STATUS.map(([c, l]) =>
         `<span><i class="${c}"></i>${l} <b>${counts[c]}</b></span>`).join('')}<span class="plot-note">MBCs drawn longer than barges</span></figcaption>
