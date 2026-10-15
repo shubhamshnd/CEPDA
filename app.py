@@ -42,7 +42,6 @@ def network():
     for loc in config.LOCATIONS:
         ports.append({
             **_info(loc),
-            "site": loc.get("site", loc["name"]),
             "lat": loc["lat"],
             "lng": loc["lng"],
             "pulse": port_pulse(loc) if loc.get("schema") else None,

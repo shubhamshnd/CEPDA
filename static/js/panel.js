@@ -45,11 +45,10 @@ window.PortPanel = (function () {
     meta: document.getElementById('panel-meta'),
     body: document.getElementById('panel-body'),
     close: document.getElementById('panel-close'),
-    tabs: document.getElementById('panel-tabs'),
   };
 
-  let code = null, timer = null, data = null, mixPeriod = 'month', lastFocus = null, siblings = [];
-  const api = { onClose: null, onSwitch: null, current: () => code, open, close };
+  let code = null, timer = null, data = null, mixPeriod = 'month', lastFocus = null;
+  const api = { onClose: null, current: () => code, open, close };
 
   // ── utils ─────────────────────────────────────────────
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -342,23 +341,7 @@ window.PortPanel = (function () {
     }
   }
 
-  // One button per terminal when a site has several.
-  function setTabs(p) {
-    el.tabs.hidden = siblings.length < 2;
-    el.tabs.innerHTML = siblings.length < 2 ? '' : siblings.map(s =>
-      `<button type="button" data-code="${esc(s.code)}" aria-pressed="${s.code === p.code}">${esc(s.name)}${s.status !== 'Operational' ? ' <em>(planned)</em>' : ''}</button>`).join('');
-  }
-  el.tabs.addEventListener('click', e => {
-    const b = e.target.closest('[data-code]');
-    const p = b && siblings.find(s => s.code === b.dataset.code);
-    if (!p || p.code === code) return;
-    open(p, siblings);
-    if (api.onSwitch) api.onSwitch();
-  });
-
-  function open(p, sibs) {
-    siblings = sibs || [p];
-    setTabs(p);
+  function open(p) {
     if (!el.panel.classList.contains('open')) lastFocus = document.activeElement;
     if (code !== p.code) { data = null; el.body.innerHTML = ''; el.meta.textContent = 'Loading summary'; }
     code = p.code;

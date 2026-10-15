@@ -52,8 +52,7 @@ button { font: inherit; color: inherit; }
 
 /* ── Map ───────────────────────────────────────────── */
 #stage { position: fixed; inset: 0; }
-#map { width: 100%; height: 100%; display: block; cursor: grab; }
-#map:active { cursor: grabbing; }
+#map { width: 100%; height: 100%; display: block; }
 
 .graticule { fill: none; stroke: var(--sea-line); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .land { fill: var(--land); }
@@ -189,14 +188,6 @@ body.panel-open .clock { right: calc(var(--panel-w) + 24px); }
 }
 .panel-close:hover { border-color: var(--coast); }
 .panel-meta { padding: 6px 24px 0; font-size: 13px; color: var(--text-3); }
-.panel-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 24px 0; }
-.panel-tabs button {
-  background: none; border: 1px solid var(--rule); border-radius: 999px;
-  padding: 5px 12px; font-size: 13px; color: var(--text-2); cursor: pointer;
-}
-.panel-tabs button:hover { border-color: var(--coast); }
-.panel-tabs button[aria-pressed="true"] { background: var(--port); border-color: var(--port); color: var(--sea); font-weight: 600; }
-.panel-tabs em { font-style: normal; opacity: .7; }
 
 .panel-body { padding: 8px 24px 32px; }
 .panel-body.loading { opacity: .55; }

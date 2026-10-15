@@ -1,4 +1,4 @@
-/* Map of JSW Infrastructure sites and the reporting arcs into head office. */
+/* Map of JSW Infrastructure ports and the reporting arcs into head office. */
 (function () {
   const CFG = window.PORTNET;
   const REFRESH_MS = 5 * 60 * 1000;
@@ -20,18 +20,18 @@
 
   const projection = d3.geoMercator();
   const path = d3.geoPath(projection);
-  let india = null, world = null, network = null, sites = [], transform = d3.zoomIdentity, width = 0, height = 0;
-  let sparks = [], userMoved = false;   // true once the user zooms or pans by hand
+  let india = null, world = null, network = null, transform = d3.zoomIdentity, width = 0, height = 0;
+  let sparks = [], focused = null;      // port the map is zoomed to, null = overview
+  const SITE_SPAN = 5;                  // degrees shown around a clicked port
+  const STACK_PX = 18, STACK_GAP = 20;  // ports closer than this on screen are stacked in a column
 
-  const zoom = d3.zoom()
-    .scaleExtent([0.8, 40])
-    .on('zoom', (e) => {
-      transform = e.transform;
-      if (e.sourceEvent) userMoved = true;
-      gMap.attr('transform', transform);
-      drawOverlay();
-    });
-  svg.call(zoom).on('dblclick.zoom', null);
+  // The zoom behaviour only drives programmatic transitions; it is never bound
+  // to the svg, so the view changes only on clicks and Reset view.
+  const zoom = d3.zoom().on('zoom', (e) => {
+    transform = e.transform;
+    gMap.attr('transform', transform);
+    drawOverlay();
+  });
 
   // ── helpers ───────────────────────────────────────────
   const screen = (lng, lat) => transform.apply(projection([lng, lat]));
@@ -54,7 +54,7 @@
       .translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
   }
 
-  // All of India plus every site, with room for labels (east) and the header (north-west).
+  // All of India plus every port, with room for labels (east) and the header (north-west).
   const INDIA_BOUNDS = [[68, 6.5], [97.5, 37.2]];
   function homeView() {
     const pts = network.ports.map(p => [p.lng, p.lat]);
@@ -65,33 +65,33 @@
     ], 40);
   }
 
-  // Back to the overview: everything visible, beside the panel if it is open.
-  function reset(ms) { userMoved = false; go(homeView(), ms); }
-
-  // Keep the user's zoom; just bring the site to the middle of the visible map.
-  function centreOn(s, ms) {
-    const [x, y] = projection([s.lng, s.lat]);
-    const k = transform.k;
-    go(d3.zoomIdentity.translate((width - panelWidth()) / 2 - x * k, height / 2 - y * k).scale(k), ms);
+  // Fixed zoom on one port, centred in whatever part of the map is visible.
+  function portView(s) {
+    const h = SITE_SPAN / 2;
+    return fitTransform([[s.lng - h, s.lat - h], [s.lng + h, s.lat + h]], 40);
   }
+  const currentView = () => (focused ? portView(focused) : homeView());
+
+  // Back to the overview: everything visible, beside the panel if it is open.
+  function reset(ms) { focused = null; go(homeView(), ms); }
 
   function go(t, ms) {
     svg.transition().duration(reduceMotion ? 0 : ms).ease(d3.easeCubicInOut).call(zoom.transform, t);
   }
 
-  // Terminals sharing a site become one marker, placed at the first one listed.
-  function buildSites() {
-    sites = d3.groups(network.ports, p => p.site).map(([name, ports]) => {
-      const live = ports.filter(p => p.pulse && p.pulse.ok);
-      return {
-        name, ports,
-        lng: ports[0].lng, lat: ports[0].lat,
-        label: ports.length === 1 ? ports[0].name : name,
-        dev: ports.every(p => p.status !== 'Operational'),
-        live: live.length > 0,
-        today: d3.sum(live, p => p.pulse.today),
-      };
+  // Each port is its own marker. Ports that land within STACK_PX of each other on
+  // screen are stacked in a short column, so every one stays visible and clickable.
+  function layout() {
+    const groups = [];
+    network.ports.forEach(p => {
+      const [x, y] = screen(p.lng, p.lat);
+      const g = groups.find(g => Math.hypot(g.x - x, g.y - y) < STACK_PX);
+      if (g) g.ports.push(p); else groups.push({ x, y, ports: [p] });
     });
+    return groups.flatMap(g => g.ports.map((p, i) => ({
+      p, stacked: g.ports.length > 1,
+      x: g.x, y: g.y + (i - (g.ports.length - 1) / 2) * STACK_GAP,
+    })));
   }
 
   // ── base map ──────────────────────────────────────────
@@ -149,19 +149,19 @@
       .attr('transform', d => `translate(${screen(d.lng, d.lat)})`)
       .text(d => d.name);
 
-    // Arcs: three strands per site, the middle one carries the flow.
+    const nodes = layout();
+    const isDev = p => p.status !== 'Operational';
+
+    // Arcs: one per port, carrying the flow unless the port is still being built.
     sparks = [];
     const arcs = [];
-    sites.forEach(s => {
-      const p0 = screen(s.lng, s.lat);
-      [0.28, 0.42, 0.58].forEach((bend, i) => {
-        const g = arcGeometry(p0, ho, bend);
-        arcs.push({ key: s.name + i, d: g.d, cls: (i === 1 ? 'main' : 'strand') + (s.dev ? ' dev' : '') });
-        if (i === 1 && !s.dev) {
-          arcs.push({ key: s.name + 'flow', d: g.d, cls: 'flow' });
-          sparks.push({ key: s.name, p0, c: g.c, p1: ho });
-        }
-      });
+    nodes.forEach(n => {
+      const g = arcGeometry([n.x, n.y], ho, 0.42);
+      arcs.push({ key: n.p.code, d: g.d, cls: 'main' + (isDev(n.p) ? ' dev' : '') });
+      if (!isDev(n.p)) {
+        arcs.push({ key: n.p.code + 'flow', d: g.d, cls: 'flow' });
+        sparks.push({ key: n.p.code, p0: [n.x, n.y], c: g.c, p1: ho });
+      }
     });
     gArcs.selectAll('path.arc').data(arcs, d => d.key)
       .join('path')
@@ -183,40 +183,62 @@
     hoG.select('.name').text(d => d.city);
     hoG.select('.sub').text(d => d.name);
 
-    // Sites.
+    // Ports.
     const current = window.PortPanel.current();
-    const pm = gMarks.selectAll('g.port-mark').data(sites, d => d.name).join(enter => {
+    const pm = gMarks.selectAll('g.port-mark').data(nodes, d => d.p.code).join(enter => {
       const g = enter.append('g')
         .attr('class', 'port-mark')
         .attr('tabindex', 0)
         .attr('role', 'button')
-        .attr('aria-label', d => `${d.label}, open summary`)
-        .on('click', (e, d) => openSite(d))
-        .on('keydown', (e, d) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSite(d); } });
-      g.append('circle').attr('class', 'hit').attr('r', 18);
+        .attr('aria-label', d => `${d.p.name}, open summary`)
+        .on('click', (e, d) => openPort(d.p.code))
+        .on('keydown', (e, d) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPort(d.p.code); } });
+      g.append('circle').attr('class', 'hit').attr('r', 12);
       g.append('circle').attr('class', 'ring').attr('r', 7);
       g.append('circle').attr('class', 'core').attr('r', 7);
-      g.append('text').attr('class', 'name').attr('x', 14).attr('y', -1);
-      g.append('text').attr('class', 'sub').attr('x', 14).attr('y', 14);
+      g.append('text').attr('class', 'name').attr('x', 14).attr('y', 5);
+      g.append('text').attr('class', 'sub').attr('x', 14).attr('y', 20);
+      g.append('title');               // name on hover, for labels hidden by placeLabels
       return g;
     });
-    pm.attr('transform', d => `translate(${screen(d.lng, d.lat)})`)
-      .classed('live', d => d.live)
-      .classed('dev', d => d.dev)
-      .classed('active', d => d.ports.some(p => p.code === current));
-    pm.select('.name').text(d => d.label);
+    pm.attr('transform', d => `translate(${d.x},${d.y})`)
+      .classed('live', d => !!(d.p.pulse && d.p.pulse.ok))
+      .classed('dev', d => isDev(d.p))
+      .classed('active', d => d.p.code === current);
+    pm.select('.name').text(d => d.p.name);
+    pm.select('title').text(d => d.p.name);
     pm.select('.sub').text(d => {
-      if (d.live) return `${fmt.format(d.today)} MT today`;
-      if (d.ports.length > 1) return `${d.ports.length} terminals`;
-      return d.dev ? 'Under development' : '';
+      if (d.stacked) return '';        // no room between stacked rows
+      if (d.p.pulse && d.p.pulse.ok) return `${fmt.format(d.p.pulse.today)} MT today`;
+      return isDev(d.p) ? 'Under development' : '';
     });
-    // Flip labels to the left when they would run under the panel or off screen.
-    const edge = width - panelWidth() - 12;
-    pm.each(function (d) {
-      const x = screen(d.lng, d.lat)[0];
-      const w = d3.max(d3.select(this).selectAll('text').nodes(), n => n.getComputedTextLength()) || 0;
-      const left = x + 14 + w > edge;
-      d3.select(this).selectAll('text').attr('x', left ? -14 : 14).attr('text-anchor', left ? 'end' : 'start');
+    placeLabels(pm, nodes, ho);
+  }
+
+  // Greedy label placement: right of the marker, else left, else without the
+  // sub-line, else hidden (the name still shows on hover). Most important first.
+  function placeLabels(pm, nodes, ho) {
+    const edge = width - panelWidth() - 8;
+    const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+    const taken = nodes.map(n => [n.x - 8, n.y - 8, n.x + 8, n.y + 8]);   // every marker
+    const hoW = d3.max(gMarks.selectAll('g.ho-mark text').nodes(), t => t.getComputedTextLength()) || 0;
+    taken.push([ho[0] - 18 - hoW, ho[1] - 14, ho[0] + 8, ho[1] + 18]);    // head office + its label
+    const rank = d => (d.p.code === window.PortPanel.current() ? 0 : d.p.pulse && d.p.pulse.ok ? 1 : d.p.status === 'Operational' ? 2 : 3);
+    // Sort a copy, not the DOM, so keyboard tab order stays as listed in config.
+    pm.nodes().sort((a, b) => rank(a.__data__) - rank(b.__data__)).forEach(el => {
+      const d = el.__data__, g = d3.select(el), name = g.select('.name'), sub = g.select('.sub');
+      const hasSub = !!sub.text() && getComputedStyle(sub.node()).display !== 'none';
+      const w = Math.max(name.node().getComputedTextLength(), hasSub ? sub.node().getComputedTextLength() : 0);
+      const tries = [];
+      [hasSub, false].forEach(withSub => [1, -1].forEach(side => {
+        const x0 = side > 0 ? d.x + 12 : d.x - 12 - w;
+        tries.push({ side, withSub, box: [x0, d.y - 8, x0 + w, d.y + (withSub ? 24 : 9)] });
+      }));
+      const ok = tries.find(t => t.box[0] > 4 && t.box[2] < edge && !taken.some(b => hit(t.box, b)));
+      if (ok) taken.push(ok.box);
+      g.selectAll('text').attr('x', ok && ok.side < 0 ? -14 : 14).attr('text-anchor', ok && ok.side < 0 ? 'end' : 'start');
+      name.attr('visibility', ok ? null : 'hidden');
+      sub.attr('visibility', ok && ok.withSub ? null : 'hidden');
     });
   }
 
@@ -235,18 +257,15 @@
   }
 
   // ── panel link ────────────────────────────────────────
-  function openSite(s, code) {
-    const p = s.ports.find(x => x.code === code) || s.ports.find(x => x.connected) || s.ports[0];
-    window.PortPanel.open(p, s.ports);
-    drawOverlay();
-    if (userMoved) centreOn(s, 700); else reset(700);   // slide the map into the left half
-  }
   function openPort(code) {
-    const s = sites.find(x => x.ports.some(p => p.code === code));
-    if (s) openSite(s, code);
+    const p = network.ports.find(x => x.code === code);
+    if (!p) return;
+    window.PortPanel.open(p);
+    drawOverlay();
+    focused = p;
+    go(portView(p), 900);              // zoom in and slide the port into the left half
   }
-  window.PortPanel.onSwitch = () => drawOverlay();
-  window.PortPanel.onClose = () => { drawOverlay(); if (!userMoved) reset(700); };
+  window.PortPanel.onClose = () => { drawOverlay(); go(currentView(), 700); };   // stays zoomed until Reset view
 
   // ── header text + clock ───────────────────────────────
   function updateBrand() {
@@ -282,10 +301,8 @@
     width = r.width; height = r.height;
     if (!india || !network) return;
     drawBase();
-    zoom.extent([[0, 0], [width, height]])
-      .translateExtent([projection([40, 45]), projection([115, -5])]);   // can't pan off into empty ocean
-    userMoved = false;
-    svg.interrupt().call(zoom.transform, homeView());
+    zoom.extent([[0, 0], [width, height]]);
+    svg.interrupt().call(zoom.transform, currentView());
   }
 
   async function loadNetwork() {
@@ -300,7 +317,6 @@
     try {
       network = await loadNetwork();
       tagStates();
-      buildSites();
       updateBrand();
       drawOverlay();
     } catch (e) { console.warn('refresh failed', e); }
@@ -321,7 +337,6 @@
       return;
     }
     tagStates();
-    buildSites();
     resize();
     updateBrand();
     if (!reduceMotion) requestAnimationFrame(animate);
