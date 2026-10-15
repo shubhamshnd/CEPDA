@@ -69,5 +69,9 @@ window.SidePanel = (function () {
   el.addEventListener('focusin', hover);
   el.addEventListener('focusout', () => window.PortMap.hover(null));
 
+  // Support card (bottom-right <details>): close on a click anywhere else.
+  const support = document.getElementById('support');
+  document.addEventListener('click', e => { if (support.open && !support.contains(e.target)) support.open = false; });
+
   return { render };
 })();

@@ -426,7 +426,7 @@
     const hoW = focused ? 0 : d3.max(gMarks.selectAll('g.ho-mark text').nodes(), textWidth) || 0;
     taken.push([ho[0] - 18 - hoW, ho[1] - 14, ho[0] + 8, ho[1] + 18]);    // head office + its label
     // Page furniture drawn over the map: logo block, clock, zoom hint.
-    document.querySelectorAll('#side, .clock, #zoom-hint:not([hidden])').forEach(n => {
+    document.querySelectorAll('#side, .clock, #zoom-hint:not([hidden]), #support').forEach(n => {
       const r = n.getBoundingClientRect();
       taken.push([r.left - 6, r.top - 6, r.right + 6, r.bottom + 6]);
     });

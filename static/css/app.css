@@ -191,7 +191,7 @@ body.panel-open .side { transform: translateX(calc(-100% - 24px)); opacity: 0; p
   transition: right .35s ease;
 }
 body.panel-open .clock { right: calc(var(--panel-w) + 24px); }
-body.panel-open .zoom-hint { right: calc(var(--panel-w) + 24px); }
+body.panel-open .zoom-hint { right: calc(var(--panel-w) + 70px); }
 #clock-time { display: block; font-family: var(--font-fig); font-size: 30px; font-weight: 500; line-height: 1; }
 #clock-meta { display: block; color: var(--text-2); font-size: 13px; margin-top: 6px; }
 
@@ -200,8 +200,31 @@ body.panel-open .zoom-hint { right: calc(var(--panel-w) + 24px); }
   list-style: none; font-size: 13px; color: var(--text-2);
   display: grid; gap: 6px; pointer-events: none;
 }
+/* Support: a small round button in the corner; the card opens above it. */
+.support { position: absolute; right: 24px; bottom: calc(24px + var(--safe-b)); z-index: 6; transition: right .35s ease; }
+body.panel-open .support { right: calc(var(--panel-w) + 24px); }
+.support summary {
+  list-style: none; cursor: pointer; width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center; color: var(--text-2);
+  background: rgba(13, 26, 51, .85); border: 1px solid var(--rule);
+}
+.support summary::-webkit-details-marker { display: none; }
+.support summary:hover, .support[open] summary { color: var(--port-hi); border-color: var(--coast); }
+.support-card {
+  position: absolute; right: 0; bottom: 44px; width: max-content; padding: 12px 14px; white-space: nowrap;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .45); font-size: 13px; color: var(--text-2);
+}
+.support-card b { color: var(--text); font-weight: 600; }
+.support-card a {
+  display: inline-block; margin-top: 10px; padding: 5px 12px; border-radius: 999px;
+  background: var(--port); color: var(--sea); font-weight: 600; text-decoration: none;
+}
+.support-card a:hover { background: var(--port-hi); }
+
+/* the zoom hint sits just left of the support button */
 .zoom-hint {
-  position: absolute; right: 24px; bottom: calc(24px + var(--safe-b)); pointer-events: none;
+  position: absolute; right: 70px; bottom: calc(24px + var(--safe-b)); pointer-events: none;
   transition: right .35s ease;
   background: rgba(13, 26, 51, .85); border: 1px solid var(--rule); border-radius: 6px;
   padding: 7px 12px; font-size: 13px; color: var(--text-2);
@@ -420,7 +443,8 @@ body.panel-open .zoom-hint { right: calc(var(--panel-w) + 24px); }
   body.panel-open .clock { right: 16px; }
   .legend { display: none; }
   .brand-logo { height: 40px; }
-  .zoom-hint { right: 16px; bottom: calc(16px + var(--safe-b)); }
+  .zoom-hint { right: 62px; bottom: calc(16px + var(--safe-b)); }
+  .support { right: 16px; bottom: calc(16px + var(--safe-b)); }
   .panel {
     top: auto; height: 86%; width: 100%;
     border-left: 0; border-top: 1px solid var(--rule); border-radius: 14px 14px 0 0;
