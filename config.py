@@ -41,8 +41,8 @@ LOCATIONS = [
      "lat": 18.7080, "lng": 72.9520},
     {"code": "JNPTL", "name": "JNPT Liquid Terminal", "region": "Navi Mumbai, Maharashtra",
      "lat": 18.9500, "lng": 72.9500, "image": "img/jnpt_drone.jpg",
-     # Preferred schema; if the jnpa_* views live elsewhere in the mirror, summary_jnpa finds them.
-     "schema": "portman_jnpa", "dashboard": "jnpa", "berth_image": "img/jjltpljetty.png"},
+     # Mirrored jnpa_* tables; if they ever move schema, summary_jnpa finds them.
+     "schema": "portbird_jnpa", "dashboard": "jnpa", "berth_image": "img/jjltpljetty.png"},
     {"code": "JPL", "kind": "port", "name": "Jaigarh Port", "region": "Ratnagiri, Maharashtra",
      "lat": 17.2960, "lng": 73.2170, "image": "img/jpl_drone.jpg"},
     {"code": "MURBE", "kind": "port", "name": "Murbe Port", "region": "Palghar, Maharashtra",
