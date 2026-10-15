@@ -177,16 +177,17 @@ window.PortPanel = (function () {
   // Vessels drawn on the port photo using each berth's box (image pixels) from
   // vw_port_overview_berth_layout. Same rules as PORTMAN port_overview: boats
   // stack outward from the berth face by bank tier, A/S innermost.
-  // The photo is portrait; it is turned a quarter clockwise to sit landscape in
-  // the panel (water on top, Berth 1 on the left). Boats and berth marks turn
-  // with it; names and berth labels are drawn upright on top.
+  // The photo is portrait; it is laid landscape in the panel by swapping x and y
+  // (a quarter turn clockwise, then flipped left-right): water on top, Berth 1 on
+  // the right. Boats and berth marks go with it; names and berth labels are drawn
+  // upright on top.
   let plotBoats = [];                   // vessel + berth per boat, indexed by data-i
   const STATUS = [['working', 'Discharging'], ['waiting', 'Waiting'], ['done', 'Completed']];
   function berthPlot(berths, src, size) {
     const [iw, ih] = size, W = ih, H = iw;                    // landscape after the turn
-    const turn = (x, y) => [ih - y, x];                        // photo px -> landscape px
+    const turn = (x, y) => [y, x];                             // photo px -> landscape px
     // Crop to the jetty, with room above it for names, so boats draw larger.
-    const xs = berths.map(b => ih - b.box.cy), ys = berths.map(b => b.box.cx);
+    const xs = berths.map(b => b.box.cy), ys = berths.map(b => b.box.cx);
     const vx = Math.max(0, Math.min(...xs) - 160), vx1 = Math.min(W, Math.max(...xs) + 160);
     const vy = Math.max(0, Math.min(...ys) - 200), vy1 = Math.min(H, Math.max(...ys) + 170);
     const k = (vx1 - vx) / Math.max(320, el.body.clientWidth - 48);   // landscape px per css px
@@ -238,7 +239,7 @@ window.PortPanel = (function () {
     });
 
     return `<figure class="berth-plot"><svg viewBox="${vx} ${vy} ${vx1 - vx} ${vy1 - vy}" role="group" aria-label="Berth layout with vessels at each berth">
-      <g transform="translate(${ih},0) rotate(90)"><image href="${esc(src)}" width="${iw}" height="${ih}"/>${turned.join('')}</g>
+      <g transform="matrix(0,1,1,0,0,0)"><image href="${esc(src)}" width="${iw}" height="${ih}"/>${turned.join('')}</g>
       ${marks.join('')}${names.join('')}</svg>
       <figcaption class="plot-legend">${STATUS.map(([c, l]) =>
         `<span><i class="${c}"></i>${l} <b>${counts[c]}</b></span>`).join('')}<span class="plot-note">MBCs drawn longer than barges</span></figcaption>
