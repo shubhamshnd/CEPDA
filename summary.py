@@ -262,18 +262,6 @@ def delays(q, today):
     return {"total_minutes": sum(i["minutes"] for i in items), "top": items[:5], "count": len(items)}
 
 
-def shift_info(q, today, shift):
-    rows = q.all("""
-        SELECT shift_incharge, note_no, note
-        FROM {s}.vw_port_overview_shift_notes
-        WHERE report_date = %(d)s AND UPPER(shift) = %(sh)s
-        ORDER BY note_no NULLS LAST
-    """, {"d": today, "sh": shift})
-    incharge = next((r["shift_incharge"] for r in rows if r["shift_incharge"]), "")
-    notes = [r["note"] for r in rows if r["note_no"] is not None and (r["note"] or "").strip()]
-    return {"shift": shift, "incharge": (incharge or "").strip(), "notes": notes}
-
-
 def mbc_fleet(q):
     rows = q.all("""
         SELECT mbc_name, cargo_name, mbc_status
@@ -363,7 +351,6 @@ def port_summary(loc, now=None):
             "at_port": _run(errors, "at_port", at_port, q),
             "inbound": _run(errors, "inbound", inbound, q),
             "delays": _run(errors, "delays", delays, q, today),
-            "shift_info": _run(errors, "shift_info", shift_info, q, today, shift),
             "mbc_fleet": _run(errors, "mbc_fleet", mbc_fleet, q),
             "tide": _run(errors, "tide", tide, q, now),
             "weather": _run(errors, "weather", weather, q, now),

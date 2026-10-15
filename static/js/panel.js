@@ -178,9 +178,11 @@ window.PortPanel = (function () {
   // vw_port_overview_berth_layout. Same rules as PORTMAN port_overview: boats
   // stack outward from the berth face by bank tier, A/S innermost.
   const PLOT_W = 440;                   // css px the plot is laid out for
+  let plotBoats = [];                   // vessel + berth per boat, indexed by data-i
   function berthPlot(berths, src, size) {
     const [iw, ih] = size, k = iw / PLOT_W;    // image px per css px
     const fs = 12 * k, marks = [], boats = [], labels = [];
+    plotBoats = [];
     berths.forEach(b => {
       const { cx, cy, w = 60, h = 60, angle = 0 } = b.box;
       const th = angle * Math.PI / 180, cos = Math.cos(th), sin = Math.sin(th);
@@ -196,13 +198,11 @@ window.PortPanel = (function () {
         edge -= beam + 2;
         const x = cx + off * cos, y = cy + off * sin;
         const cls = v.status === 'Under Discharge' ? 'working' : v.status === 'Discharge Completed' ? 'done' : 'waiting';
-        const tip = `${v.name} (${v.type === 'MBC' ? 'MBC' : 'Barge'}, ${v.position}) at ${b.berth}
-${v.cargo}
-${mt(v.total)} MT, ${mt(v.balance)} MT left
-${v.status}`;
-        boats.push(`<rect class="boat ${cls}" x="${-beam / 2}" y="${-len / 2}" width="${beam}" height="${len}" rx="${beam / 2}"
-          transform="translate(${x},${y}) rotate(${angle})"><title>${esc(tip)}</title></rect>`);
-        labels.push({ x: x - beam / 2, y, name: v.name });
+        const i = plotBoats.push({ v, berth: b.berth }) - 1;
+        boats.push(`<rect class="boat ${cls}" data-i="${i}" tabindex="0" role="button" aria-label="${esc(v.name)}, ${v.type === 'MBC' ? 'MBC' : 'barge'} at ${esc(b.berth)}"
+          x="${-beam / 2}" y="${-len / 2}" width="${beam}" height="${len}" rx="${beam / 2}"
+          transform="translate(${x},${y}) rotate(${angle})"/>`);
+        labels.push({ x: x - beam / 2, y, name: v.name, i });
       });
     });
     // Names in a column down the water side, pushed apart so none overlap.
@@ -212,12 +212,74 @@ ${v.status}`;
     const names = labels.map(L => {
       const end = lx + L.name.length * 6.4 * k;
       return `<line class="ld" x1="${end + 3 * k}" y1="${L.ly}" x2="${L.x}" y2="${L.y}"/>
-        <text class="vl" x="${lx}" y="${L.ly}" dy=".35em" font-size="${fs}">${esc(L.name)}</text>`;
+        <text class="vl" data-i="${L.i}" x="${lx}" y="${L.ly}" dy=".35em" font-size="${fs}">${esc(L.name)}</text>`;
     });
-    return `<figure class="berth-plot"><svg viewBox="0 0 ${iw} ${ih}" role="img" aria-label="Berth layout with vessels at each berth">
+    return `<figure class="berth-plot"><svg viewBox="0 0 ${iw} ${ih}" role="group" aria-label="Berth layout with vessels at each berth">
       <image href="${esc(src)}" width="${iw}" height="${ih}"/>
       ${marks.join('')}${names.join('')}${boats.join('')}</svg></figure>`;
   }
+
+  // Hover card for a boat (or its name label) on the berth plot.
+  const tip = document.createElement('div');
+  tip.className = 'boat-tip';
+  tip.hidden = true;
+  document.body.appendChild(tip);
+  let tipFor = null;
+
+  function tipHtml({ v, berth }) {
+    const st = v.status === 'Under Discharge' ? 'working' : v.status === 'Discharge Completed' ? 'done' : 'waiting';
+    const pct = v.done_pct != null ? v.done_pct : 0;
+    return `<div class="bt-head"><b>${esc(v.name)}</b><span class="bt-type">${v.type === 'MBC' ? 'MBC' : 'Barge'}</span></div>
+      <div class="bt-where">${esc(berth)}, ${esc(v.position || 'A/S')}</div>
+      <dl>
+        <dt>Cargo</dt><dd>${esc(v.cargo) || '–'}</dd>
+        <dt>Quantity</dt><dd>${mt(v.total)} MT</dd>
+        <dt>Balance</dt><dd>${mt(v.balance)} MT</dd>
+      </dl>
+      <div class="bt-status ${st}"><i></i>${esc(v.status)}${v.status !== 'Waiting' ? `<span>${pct}% done</span>` : ''}</div>
+      ${v.status !== 'Waiting' ? `<div class="bt-meter"><i class="${st}" style="width:${pct}%"></i></div>` : ''}`;
+  }
+
+  // Next to the pointer, or beside the boat when focused by keyboard; kept on screen.
+  function placeTip(x, y) {
+    const r = tip.getBoundingClientRect(), pad = 14;
+    let left = x + pad, top = y + pad;
+    if (left + r.width > innerWidth - 8) left = x - pad - r.width;
+    if (top + r.height > innerHeight - 8) top = y - pad - r.height;
+    tip.style.left = Math.max(8, left) + 'px';
+    tip.style.top = Math.max(8, top) + 'px';
+  }
+
+  function showTip(target, x, y) {
+    const i = +target.dataset.i;
+    if (tipFor !== i) {
+      tipFor = i;
+      tip.innerHTML = tipHtml(plotBoats[i]);
+      el.body.querySelectorAll('.berth-plot .hot').forEach(n => n.classList.remove('hot'));
+      el.body.querySelectorAll(`.berth-plot [data-i="${i}"]`).forEach(n => n.classList.add('hot'));
+    }
+    tip.hidden = false;
+    placeTip(x, y);
+  }
+  function hideTip() {
+    tip.hidden = true;
+    tipFor = null;
+    el.body.querySelectorAll('.berth-plot .hot').forEach(n => n.classList.remove('hot'));
+  }
+
+  el.body.addEventListener('pointermove', e => {
+    const t = e.target.closest('.berth-plot [data-i]');
+    if (t) showTip(t, e.clientX, e.clientY); else if (tipFor !== null) hideTip();
+  });
+  el.body.addEventListener('pointerleave', hideTip);
+  el.body.addEventListener('focusin', e => {
+    const t = e.target.closest('.berth-plot [data-i]');
+    if (!t) return;
+    const r = t.getBoundingClientRect();
+    showTip(t, r.right, r.top);
+  });
+  el.body.addEventListener('focusout', hideTip);
+  el.panel.querySelector('.panel-scroll').addEventListener('scroll', hideTip, { passive: true });
 
   function secAtPort(a, d) {
     const s = a.status;
@@ -284,14 +346,6 @@ ${v.status}`;
     </section>`;
   }
 
-  function secShift(si) {
-    return `<section class="sec">
-      <h3>Shift ${esc(si.shift)} <small>${si.incharge ? 'In charge: ' + esc(si.incharge) : 'In-charge not recorded'}</small></h3>
-      ${si.notes.length ? `<ol class="notes">${si.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ol>`
-        : `<p class="empty-note">No shift notes yet.</p>`}
-    </section>`;
-  }
-
   function secTideWeather(tide, wx, asOf) {
     const ref = new Date(asOf);
     const tides = tide && tide.length ? `<ul class="tides">${tide.map(t => {
@@ -341,7 +395,6 @@ ${v.status}`;
     if (d.at_port) parts.push(secAtPort(d.at_port, d));
     if (d.inbound) parts.push(secInbound(d.inbound));
     if (d.delays) parts.push(secDelays(d.delays));
-    if (d.shift_info) parts.push(secShift(d.shift_info));
     if (d.tide || d.weather) parts.push(secTideWeather(d.tide, d.weather, d.as_of));
     if (d.mbc_fleet) parts.push(secFleet(d.mbc_fleet));
     if (d.errors && d.errors.length) {
@@ -431,6 +484,7 @@ ${v.status}`;
 
   function close() {
     code = null;
+    hideTip();
     clearInterval(timer);
     el.panel.classList.remove('open');
     el.panel.setAttribute('aria-hidden', 'true');
@@ -442,7 +496,7 @@ ${v.status}`;
   }
 
   el.close.addEventListener('click', close);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && code) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && code) { e.preventDefault(); close(); } });
 
   return api;
 })();

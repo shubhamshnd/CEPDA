@@ -25,33 +25,68 @@
   let sparks = [], focused = null;      // port the map is zoomed to, null = overview
   const SITE_SPAN = 5;                  // degrees shown around a clicked port
   const STACK_PX = 18, STACK_GAP = 20;  // ports closer than this on screen are stacked in a column
+  const TILT = 55, PERSPECTIVE = 1800;  // camera when zoomed to a port: tilt (deg) and perspective depth (px)
+  const ORBIT_DEG_PER_S = 3;            // how fast the tilted camera circles the port
 
   // The zoom behaviour only drives programmatic transitions; it is never bound
-  // to the svg, so the view changes only on clicks and Reset view.
-  // On a slide (same zoom level) the base map layer is moved with a CSS transform,
-  // which the browser does without repainting it; it is redrawn once at the end.
+  // to the svg, so the view changes only on clicks, double-click and Esc.
+  //
+  // Two CSS transforms sit on the base map layer, both moved by the GPU without
+  // repainting the coastline:
+  //   slideM  a port-to-port slide at the same zoom, baked into the svg when it ends
+  //   camM    the camera: when zoomed to a port the map tilts back to an isometric
+  //           style angle and slowly orbits the port
+  // Arcs, markers and labels are not tilted: they are drawn flat at the projected
+  // points (see screen), so text stays upright and readable.
   const baseEl = document.getElementById('basemap');
   let baseT = d3.zoomIdentity, sliding = false;   // baseT: transform the base map was drawn at
+  let slideM = new DOMMatrix(), camM = new DOMMatrix();
+  const cam = { tilt: 0, rot: 0, ox: 0, oy: 0 };  // degrees, degrees, orbit centre in px
+
+  function paintBase() {
+    const m = camM.multiply(slideM);
+    baseEl.style.transform = m.isIdentity ? '' : m.toString();
+    baseEl.style.willChange = sliding || cam.tilt ? 'transform' : '';
+  }
+  function updateCam() {
+    const persp = new DOMMatrix();
+    persp.m34 = -1 / PERSPECTIVE;
+    camM = cam.tilt || cam.rot
+      ? new DOMMatrix().translate(cam.ox, cam.oy).multiply(persp)
+          .rotate(cam.tilt, 0, 0).rotate(0, 0, cam.rot).translate(-cam.ox, -cam.oy)
+      : new DOMMatrix();
+    paintBase();
+  }
   function settleBase() {
     sliding = false;
     gMap.attr('transform', transform);
     baseT = transform;
-    baseEl.style.transform = baseEl.style.willChange = '';
+    slideM = new DOMMatrix();
+    paintBase();
   }
   const zoom = d3.zoom().on('zoom', (e) => {
     transform = e.transform;
     if (sliding) {
       const s = transform.k / baseT.k;
-      baseEl.style.transform = `translate(${transform.x - s * baseT.x}px,${transform.y - s * baseT.y}px) scale(${s})`;
+      slideM = new DOMMatrix([s, 0, 0, s, transform.x - s * baseT.x, transform.y - s * baseT.y]);
     } else {
       gMap.attr('transform', transform);
       baseT = transform;
+      slideM = new DOMMatrix();
     }
+    paintBase();
     drawOverlay();
   });
 
   // ── helpers ───────────────────────────────────────────
-  const screen = (lng, lat) => transform.apply(projection([lng, lat]));
+  // Screen position of a place, through the zoom and then the camera.
+  const screen = (lng, lat) => {
+    const [x, y] = transform.apply(projection([lng, lat]));
+    if (camM.isIdentity) return [x, y];
+    const p = camM.transformPoint(new DOMPoint(x, y));
+    const w = Math.max(p.w, 0.05);     // far in front of the camera: clamp rather than flip
+    return [p.x / w, p.y / w];
+  };
 
   function panelWidth() {
     return document.body.classList.contains('panel-open') && window.innerWidth > 760
@@ -89,13 +124,37 @@
   }
   const currentView = () => (focused ? portView(focused) : homeView());
 
-  // Back to the overview: everything visible, beside the panel if it is open.
-  function reset(ms) { focused = null; go(homeView(), ms); }
+  // Camera settings: tilted and centred on the visible map when zoomed to a port.
+  const camFocus = () => ({ tilt: TILT, ox: (width - panelWidth()) / 2, oy: height / 2 });
+  const zoomHint = document.getElementById('zoom-hint');
+
+  // Slow orbit while zoomed to a port.
+  let orbit = null;
+  function startOrbit() {
+    if (orbit || reduceMotion) return;
+    let last = 0;
+    orbit = d3.timer(t => {
+      cam.rot = (cam.rot + (t - last) * ORBIT_DEG_PER_S / 1000) % 360;
+      last = t;
+      updateCam();
+      if (!moving) drawOverlay();      // while moving, the zoom handler draws
+    });
+  }
+  function stopOrbit() { if (orbit) { orbit.stop(); orbit = null; } }
+
+  // Back to the overview: flat, north up, everything visible (beside the panel if open).
+  function reset(ms) {
+    focused = null;
+    zoomHint.hidden = true;
+    stopOrbit();
+    cam.rot = ((cam.rot % 360) + 540) % 360 - 180;   // same angle, but unwind the short way
+    go(homeView(), ms, { tilt: 0, rot: 0 });
+  }
 
   // While a transition runs, label placement and stacking stay frozen (cheap
   // frames, no labels flickering mid-move); both are redone once it settles.
-  let moving = false;
-  function go(t, ms) {
+  let moving = false, restack = true;
+  function go(t, ms, camTo = {}) {
     // Same zoom level (port to nearby port): slide straight across. d3's default
     // "fly" path would zoom out and back in, which reads as a bounce on short moves.
     const samek = Math.abs(Math.log(t.k / transform.k)) < 0.05;
@@ -104,17 +163,30 @@
     if (sliding) settleBase();         // a new move cut a slide short: bake in where it got to
     sliding = samek && !reduceMotion;
     if (sliding) baseEl.style.willChange = 'transform';
+    // Camera eases alongside the zoom. Registered first so each frame's zoom
+    // event (which draws) already sees the updated camera.
+    const from = { ...cam }, to = { ...cam, ...camTo };
+    const lerp = (a, b, k) => a + (b - a) * k;
     svg.transition().duration(reduceMotion ? 0 : ms).ease(d3.easeCubicInOut)
+      .tween('camera', () => k => {
+        cam.tilt = lerp(from.tilt, to.tilt, k);
+        cam.ox = lerp(from.ox, to.ox, k);
+        cam.oy = lerp(from.oy, to.oy, k);
+        if ('rot' in camTo) cam.rot = lerp(from.rot, to.rot, k);   // otherwise the orbit owns it
+        updateCam();
+      })
       .call(zoom.transform, t)
-      .on('end', () => { moving = false; settleBase(); drawOverlay(); });   // an interrupting go() keeps it true
+      .on('end', () => { moving = false; restack = true; settleBase(); drawOverlay(); });   // an interrupting go() keeps it true
   }
 
   // Each port is its own marker. Ports that land within STACK_PX of each other on
   // screen are stacked in a short column, so every one stays visible and clickable.
-  let stacks = null;                    // last settled grouping, reused while moving
+  // Grouping is worked out when the view settles and kept while moving or orbiting,
+  // so markers don't jump between stacked and apart mid-animation.
+  let stacks = null;
   function layout() {
     let groups;
-    if (moving && stacks) {
+    if (stacks && (moving || !restack)) {
       groups = stacks.map(ports => { const [x, y] = screen(ports[0].lng, ports[0].lat); return { x, y, ports }; });
     } else {
       groups = [];
@@ -124,6 +196,7 @@
         if (g) g.ports.push(p); else groups.push({ x, y, ports: [p] });
       });
       stacks = groups.map(g => g.ports);
+      restack = false;
     }
     return groups.flatMap(g => g.ports.map((p, i) => ({
       p, stacked: g.ports.length > 1,
@@ -251,8 +324,11 @@
       if (d.p.pulse && d.p.pulse.ok) return `${fmt.format(d.p.pulse.today)} MT today`;
       return isDev(d.p) ? 'Under development' : '';
     });
-    if (!moving) placeLabels(pm, nodes, ho);
+    // While orbiting, re-place labels a few times a second, not every frame.
+    const now = performance.now();
+    if (!moving && (!orbit || now - lastPlaced > 400)) { placeLabels(pm, nodes, ho); lastPlaced = now; }
   }
+  let lastPlaced = 0;
 
   // Label text never changes width, so measure each string once. Reading text
   // sizes forces a browser layout, which is what made animation frames stutter.
@@ -315,9 +391,12 @@
     window.PortPanel.open(p);
     drawOverlay();
     focused = p;
-    go(portView(p), 900);              // zoom in and slide the port into the left half
+    zoomHint.hidden = false;
+    go(portView(p), 1100, camFocus()); // zoom in, tilt, and slide the port into the left half
+    startOrbit();
   }
-  window.PortPanel.onClose = () => { drawOverlay(); go(currentView(), 700); };   // stays zoomed until Reset view
+  // Stays zoomed (and orbiting) until double-click or Esc; re-centres on the wider map.
+  window.PortPanel.onClose = () => { drawOverlay(); go(currentView(), 700, focused ? camFocus() : {}); };
 
   // ── header text + clock ───────────────────────────────
   function updateBrand() {
@@ -355,8 +434,11 @@
     drawBase();
     zoom.extent([[0, 0], [width, height]]);
     moving = false;                    // interrupt() below cancels any running move
+    restack = true;
     svg.interrupt();
     settleBase();
+    if (focused) Object.assign(cam, camFocus());
+    updateCam();
     svg.call(zoom.transform, currentView());
   }
 
@@ -373,6 +455,7 @@
       network = await loadNetwork();
       tagStates();
       updateBrand();
+      restack = true;
       drawOverlay();
     } catch (e) { console.warn('refresh failed', e); }
   }
@@ -396,7 +479,11 @@
     updateBrand();
     if (!reduceMotion) requestAnimationFrame(animate);
     window.addEventListener('resize', resize);
-    document.getElementById('btn-reset').onclick = () => reset(900);
+    // Double-click anywhere on the map (not a port) or Esc zooms back out.
+    svg.on('dblclick', e => { if (focused && !e.target.closest('.port-mark')) reset(1100); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !e.defaultPrevented && focused) reset(1100);   // panel's Esc closes it first
+    });
 
     const wanted = new URLSearchParams(location.search).get('port');
     if (wanted) openPort(wanted.toUpperCase());

@@ -53,7 +53,9 @@ button { font: inherit; color: inherit; }
 /* ── Map ───────────────────────────────────────────── */
 #stage { position: fixed; inset: 0; }
 #map { width: 100%; height: 100%; display: block; position: relative; }
-#basemap { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; transform-origin: 0 0; }
+/* overflow visible: when the camera tilts, land beyond the box edges comes into view */
+#basemap { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; transform-origin: 0 0; overflow: visible; }
+#map { user-select: none; -webkit-user-select: none; }   /* double-click zooms out, it shouldn't select labels */
 
 .graticule { fill: none; stroke: var(--sea-line); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .land { fill: var(--land); }
@@ -137,13 +139,11 @@ body.panel-open .clock { right: calc(var(--panel-w) + 24px); }
   list-style: none; font-size: 13px; color: var(--text-2);
   display: grid; gap: 6px; pointer-events: none;
 }
-.map-controls { position: absolute; left: 24px; bottom: calc(24px + var(--safe-b)); }
-.map-controls button {
-  background: rgba(13, 26, 51, .85); border: 1px solid var(--rule);
-  padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 13.5px;
-  backdrop-filter: blur(6px);
+.zoom-hint {
+  position: absolute; left: 24px; bottom: calc(24px + var(--safe-b)); pointer-events: none;
+  background: rgba(13, 26, 51, .85); border: 1px solid var(--rule); border-radius: 6px;
+  padding: 7px 12px; font-size: 13px; color: var(--text-2);
 }
-.map-controls button:hover { border-color: var(--coast); }
 .legend li { display: flex; align-items: center; gap: 10px; }
 .key { display: inline-block; flex: none; }
 .key-port { width: 10px; height: 10px; border-radius: 50%; background: var(--port); }
@@ -260,11 +260,36 @@ body.panel-open .clock { right: calc(var(--panel-w) + 24px); }
 .berth-plot .boat.working { fill: var(--port); }
 .berth-plot .boat.waiting { fill: var(--wait); }
 .berth-plot .boat.done { fill: var(--good); }
+.berth-plot .boat:focus { outline: none; }
+.berth-plot .boat.hot, .berth-plot .boat:focus-visible { stroke: #fff; stroke-width: 3; }
+.berth-plot .vl { cursor: help; }
+.berth-plot .vl.hot { fill: var(--port-hi); }
 .berth-plot .vl { fill: #fff; paint-order: stroke; stroke: rgba(0, 0, 0, .75); stroke-width: 4px; }
 .berth-plot .ld { stroke: rgba(255, 255, 255, .45); stroke-width: 1.2; }
 .count .fig::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; background: var(--wait); }
 .count.working .fig::before { background: var(--port); }
 .count.done .fig::before { background: var(--good); }
+/* hover card for a boat on the berth plot */
+.boat-tip {
+  position: fixed; z-index: 30; pointer-events: none; width: 240px;
+  background: rgba(13, 26, 51, .97); border: 1px solid var(--rule); border-radius: 8px;
+  padding: 12px 14px; box-shadow: 0 12px 32px rgba(0, 0, 0, .45); font-size: 13px;
+}
+.boat-tip .bt-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.boat-tip .bt-head b { font-size: 15px; color: var(--text); }
+.boat-tip .bt-type { font-size: 11.5px; padding: 1px 6px; border-radius: 3px; background: var(--surface-2); color: var(--text-2); }
+.boat-tip .bt-where { color: var(--text-3); margin-top: 2px; }
+.boat-tip dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin-top: 10px; }
+.boat-tip dt { color: var(--text-3); }
+.boat-tip dd { text-align: right; color: var(--text); }
+.boat-tip .bt-status { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--text-2); }
+.boat-tip .bt-status i { width: 8px; height: 8px; border-radius: 50%; background: var(--wait); }
+.boat-tip .bt-status.working i { background: var(--port); }
+.boat-tip .bt-status.done i { background: var(--good); }
+.boat-tip .bt-status span { margin-left: auto; color: var(--text-3); }
+.boat-tip .bt-meter { height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; margin-top: 6px; }
+.boat-tip .bt-meter i { display: block; height: 100%; background: var(--port); }
+.boat-tip .bt-meter i.done { background: var(--good); }
 .berths { list-style: none; margin-top: 16px; display: grid; gap: 12px; }
 .berth-name { font-size: 13px; color: var(--text-3); margin-bottom: 4px; }
 .berth.empty .berth-name::after { content: ' is free'; }
@@ -293,9 +318,6 @@ body.panel-open .clock { right: calc(var(--panel-w) + 24px); }
 .delay-bars .track { height: 5px; background: var(--surface-2); border-radius: 3px; margin-top: 4px; overflow: hidden; }
 .delay-bars .track i { display: block; height: 100%; background: var(--short); opacity: .85; }
 
-.notes { list-style: none; display: grid; gap: 8px; margin-top: 10px; counter-reset: n; }
-.notes li { font-size: 14px; color: var(--text-2); padding-left: 22px; position: relative; counter-increment: n; }
-.notes li::before { content: counter(n); position: absolute; left: 0; color: var(--text-3); font-size: 12.5px; top: 1px; }
 
 .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .tides { list-style: none; display: grid; gap: 8px; }
@@ -324,7 +346,7 @@ body.panel-open .clock { right: calc(var(--panel-w) + 24px); }
   body.panel-open .clock { right: 16px; }
   .legend { display: none; }
   .brand-logo { height: 34px; margin-bottom: 10px; }
-  .map-controls { left: 16px; bottom: calc(16px + var(--safe-b)); }
+  .zoom-hint { left: 16px; bottom: calc(16px + var(--safe-b)); }
   .panel {
     top: auto; height: 86%; width: 100%;
     border-left: 0; border-top: 1px solid var(--rule); border-radius: 14px 14px 0 0;
