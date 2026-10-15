@@ -52,7 +52,8 @@ button { font: inherit; color: inherit; }
 
 /* ── Map ───────────────────────────────────────────── */
 #stage { position: fixed; inset: 0; }
-#map { width: 100%; height: 100%; display: block; }
+#map { width: 100%; height: 100%; display: block; position: relative; }
+#basemap { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; transform-origin: 0 0; }
 
 .graticule { fill: none; stroke: var(--sea-line); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .land { fill: var(--land); }
@@ -71,7 +72,7 @@ button { font: inherit; color: inherit; }
   animation: flow 1.4s linear infinite;
 }
 @keyframes flow { to { stroke-dashoffset: -16; } }
-.arc-spark { fill: #fff; filter: drop-shadow(0 0 4px var(--arc)); }
+.arc-spark { fill: #fff; stroke: var(--arc); stroke-width: 3; stroke-opacity: .45; }   /* no filter: drop-shadow repaints every frame */
 
 .sea-label { fill: #34507F; font-size: 14px; font-style: italic; letter-spacing: .12em; pointer-events: none; }
 .place circle { fill: var(--text-3); }
@@ -171,7 +172,9 @@ body.panel-open .clock { right: calc(var(--panel-w) + 24px); }
 .panel-hero { position: relative; min-height: 92px; display: flex; align-items: flex-end; }
 .panel-hero img {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  transition: opacity .2s ease;
 }
+.panel-hero img.fading { opacity: 0; }
 .panel-hero.has-img { height: auto; aspect-ratio: 1920 / 750; max-height: 340px; }   /* drone banners are 1920x750 */
 .panel-hero.has-img::after {
   content: ''; position: absolute; inset: 0;
@@ -190,7 +193,8 @@ body.panel-open .clock { right: calc(var(--panel-w) + 24px); }
 .panel-meta { padding: 6px 24px 0; font-size: 13px; color: var(--text-3); }
 
 .panel-body { padding: 8px 24px 32px; }
-.panel-body.loading { opacity: .55; }
+.panel-body { transition: opacity .2s ease; }
+.panel-body.loading { opacity: .35; }
 
 .sec { padding: 20px 0; border-bottom: 1px solid var(--rule); }
 .sec:last-child { border-bottom: 0; }
@@ -335,5 +339,5 @@ body.panel-open .clock { right: calc(var(--panel-w) + 24px); }
 @media (prefers-reduced-motion: reduce) {
   .arc.flow, .port-mark .ring { animation: none; }
   .port-mark .ring { opacity: 0; }
-  .panel, .clock { transition: none; }
+  .panel, .clock, .panel-hero img, .panel-body { transition: none; }
 }

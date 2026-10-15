@@ -7,8 +7,9 @@
   const fmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
 
   const svg = d3.select('#map');
-  const root = svg.append('g');
-  const gMap = root.append('g');
+  // The base map gets its own svg under #map. The arcs and markers animate every
+  // frame; sharing one svg made the browser repaint ~3 MB of coastline with them.
+  const gMap = d3.select('#stage').insert('svg', '#map').attr('id', 'basemap').attr('aria-hidden', 'true').append('g');
   const gOver = svg.append('g');       // screen-space layer: arcs, markers, labels
   const gSeas = gOver.append('g');
   const SEAS = [
@@ -19,7 +20,7 @@
   const gMarks = gOver.append('g');
 
   const projection = d3.geoMercator();
-  const path = d3.geoPath(projection);
+  const path = d3.geoPath(projection).digits(2);   // 0.01 px is plenty, and shrinks the path strings
   let india = null, world = null, network = null, transform = d3.zoomIdentity, width = 0, height = 0;
   let sparks = [], focused = null;      // port the map is zoomed to, null = overview
   const SITE_SPAN = 5;                  // degrees shown around a clicked port
@@ -27,9 +28,25 @@
 
   // The zoom behaviour only drives programmatic transitions; it is never bound
   // to the svg, so the view changes only on clicks and Reset view.
+  // On a slide (same zoom level) the base map layer is moved with a CSS transform,
+  // which the browser does without repainting it; it is redrawn once at the end.
+  const baseEl = document.getElementById('basemap');
+  let baseT = d3.zoomIdentity, sliding = false;   // baseT: transform the base map was drawn at
+  function settleBase() {
+    sliding = false;
+    gMap.attr('transform', transform);
+    baseT = transform;
+    baseEl.style.transform = baseEl.style.willChange = '';
+  }
   const zoom = d3.zoom().on('zoom', (e) => {
     transform = e.transform;
-    gMap.attr('transform', transform);
+    if (sliding) {
+      const s = transform.k / baseT.k;
+      baseEl.style.transform = `translate(${transform.x - s * baseT.x}px,${transform.y - s * baseT.y}px) scale(${s})`;
+    } else {
+      gMap.attr('transform', transform);
+      baseT = transform;
+    }
     drawOverlay();
   });
 
@@ -75,19 +92,39 @@
   // Back to the overview: everything visible, beside the panel if it is open.
   function reset(ms) { focused = null; go(homeView(), ms); }
 
+  // While a transition runs, label placement and stacking stay frozen (cheap
+  // frames, no labels flickering mid-move); both are redone once it settles.
+  let moving = false;
   function go(t, ms) {
-    svg.transition().duration(reduceMotion ? 0 : ms).ease(d3.easeCubicInOut).call(zoom.transform, t);
+    // Same zoom level (port to nearby port): slide straight across. d3's default
+    // "fly" path would zoom out and back in, which reads as a bounce on short moves.
+    const samek = Math.abs(Math.log(t.k / transform.k)) < 0.05;
+    zoom.interpolate(samek ? d3.interpolate : d3.interpolateZoom.rho(1));
+    moving = true;
+    if (sliding) settleBase();         // a new move cut a slide short: bake in where it got to
+    sliding = samek && !reduceMotion;
+    if (sliding) baseEl.style.willChange = 'transform';
+    svg.transition().duration(reduceMotion ? 0 : ms).ease(d3.easeCubicInOut)
+      .call(zoom.transform, t)
+      .on('end', () => { moving = false; settleBase(); drawOverlay(); });   // an interrupting go() keeps it true
   }
 
   // Each port is its own marker. Ports that land within STACK_PX of each other on
   // screen are stacked in a short column, so every one stays visible and clickable.
+  let stacks = null;                    // last settled grouping, reused while moving
   function layout() {
-    const groups = [];
-    network.ports.forEach(p => {
-      const [x, y] = screen(p.lng, p.lat);
-      const g = groups.find(g => Math.hypot(g.x - x, g.y - y) < STACK_PX);
-      if (g) g.ports.push(p); else groups.push({ x, y, ports: [p] });
-    });
+    let groups;
+    if (moving && stacks) {
+      groups = stacks.map(ports => { const [x, y] = screen(ports[0].lng, ports[0].lat); return { x, y, ports }; });
+    } else {
+      groups = [];
+      network.ports.forEach(p => {
+        const [x, y] = screen(p.lng, p.lat);
+        const g = groups.find(g => Math.hypot(g.x - x, g.y - y) < STACK_PX);
+        if (g) g.ports.push(p); else groups.push({ x, y, ports: [p] });
+      });
+      stacks = groups.map(g => g.ports);
+    }
     return groups.flatMap(g => g.ports.map((p, i) => ({
       p, stacked: g.ports.length > 1,
       x: g.x, y: g.y + (i - (g.ports.length - 1) / 2) * STACK_GAP,
@@ -104,7 +141,9 @@
       .attr('class', 'graticule')
       .attr('d', path(d3.geoGraticule().step([2, 2]).extent([[30, -20], [130, 60]])()));
 
-    const countries = topojson.feature(world, world.objects.countries).features.filter(f => f.id !== INDIA_ID);
+    // Only countries near the region; the rest of the world is never on screen.
+    const near = f => { const [[x0, y0], [x1, y1]] = d3.geoBounds(f); return x1 > 30 && x0 < 120 && y1 > -15 && y0 < 50; };
+    const countries = topojson.feature(world, world.objects.countries).features.filter(f => f.id !== INDIA_ID && near(f));
     gMap.append('g').selectAll('path')
       .data(countries)
       .join('path')
@@ -212,7 +251,20 @@
       if (d.p.pulse && d.p.pulse.ok) return `${fmt.format(d.p.pulse.today)} MT today`;
       return isDev(d.p) ? 'Under development' : '';
     });
-    placeLabels(pm, nodes, ho);
+    if (!moving) placeLabels(pm, nodes, ho);
+  }
+
+  // Label text never changes width, so measure each string once. Reading text
+  // sizes forces a browser layout, which is what made animation frames stutter.
+  const widths = new Map();
+  function textWidth(node) {
+    const t = node.textContent;
+    if (!widths.has(t)) {
+      const w = node.getComputedTextLength();
+      if (!w) return 0;                // not rendered yet; measure again next time
+      widths.set(t, w);
+    }
+    return widths.get(t);
   }
 
   // Greedy label placement: right of the marker, else left, else without the
@@ -221,14 +273,14 @@
     const edge = width - panelWidth() - 8;
     const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
     const taken = nodes.map(n => [n.x - 8, n.y - 8, n.x + 8, n.y + 8]);   // every marker
-    const hoW = d3.max(gMarks.selectAll('g.ho-mark text').nodes(), t => t.getComputedTextLength()) || 0;
+    const hoW = d3.max(gMarks.selectAll('g.ho-mark text').nodes(), textWidth) || 0;
     taken.push([ho[0] - 18 - hoW, ho[1] - 14, ho[0] + 8, ho[1] + 18]);    // head office + its label
     const rank = d => (d.p.code === window.PortPanel.current() ? 0 : d.p.pulse && d.p.pulse.ok ? 1 : d.p.status === 'Operational' ? 2 : 3);
     // Sort a copy, not the DOM, so keyboard tab order stays as listed in config.
     pm.nodes().sort((a, b) => rank(a.__data__) - rank(b.__data__)).forEach(el => {
       const d = el.__data__, g = d3.select(el), name = g.select('.name'), sub = g.select('.sub');
-      const hasSub = !!sub.text() && getComputedStyle(sub.node()).display !== 'none';
-      const w = Math.max(name.node().getComputedTextLength(), hasSub ? sub.node().getComputedTextLength() : 0);
+      const hasSub = !!sub.text() && !document.body.classList.contains('panel-open');   // CSS hides subs then
+      const w = Math.max(textWidth(name.node()), hasSub ? textWidth(sub.node()) : 0);
       const tries = [];
       [hasSub, false].forEach(withSub => [1, -1].forEach(side => {
         const x0 = side > 0 ? d.x + 12 : d.x - 12 - w;
@@ -302,7 +354,10 @@
     if (!india || !network) return;
     drawBase();
     zoom.extent([[0, 0], [width, height]]);
-    svg.interrupt().call(zoom.transform, currentView());
+    moving = false;                    // interrupt() below cancels any running move
+    svg.interrupt();
+    settleBase();
+    svg.call(zoom.transform, currentView());
   }
 
   async function loadNetwork() {

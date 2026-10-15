@@ -3,6 +3,7 @@ window.PortPanel = (function () {
   const CFG = window.PORTNET;
   const REFRESH_MS = 2 * 60 * 1000;
   const fmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
+  const reduceMotionPanel = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const CARGO_COLORS = {
     'IBRM': '#C97B5A',          // iron ore, rust
@@ -378,21 +379,43 @@ ${v.status}`;
     }
   }
 
+  // Crossfade the banner: fade the old one out while the new one loads, swap
+  // only once it is decoded, then fade in. No blank frame, no half-drawn image.
+  const FADE_MS = 200;
   function setHero(p) {
     el.title.textContent = p.name;
     el.region.textContent = p.region || '';
-    if (p.image) {
-      el.img.onload = () => { el.img.hidden = false; el.hero.classList.add('has-img'); };
-      el.img.onerror = () => { el.img.hidden = true; el.hero.classList.remove('has-img'); };
-      el.img.src = p.image;
-    } else {
-      el.img.hidden = true; el.hero.classList.remove('has-img');
-    }
+    const want = p.image || null;
+    if (el.img.dataset.src === (want || '')) return;
+    el.img.dataset.src = want || '';
+    if (!want) { el.img.hidden = true; el.hero.classList.remove('has-img'); return; }
+    el.img.classList.add('fading');
+    const next = new Image();
+    next.src = want;
+    Promise.all([next.decode(), new Promise(r => setTimeout(r, el.img.hidden ? 0 : FADE_MS))])
+      .then(() => {
+        if (el.img.dataset.src !== want) return;     // switched again meanwhile
+        el.img.src = want;
+        el.img.hidden = false;
+        el.hero.classList.add('has-img');
+        requestAnimationFrame(() => el.img.classList.remove('fading'));
+      })
+      .catch(() => {
+        if (el.img.dataset.src !== want) return;
+        el.img.hidden = true; el.hero.classList.remove('has-img');
+      });
   }
 
   function open(p) {
     if (!el.panel.classList.contains('open')) lastFocus = document.activeElement;
-    if (code !== p.code) { data = null; el.body.innerHTML = ''; el.meta.textContent = 'Loading summary'; }
+    if (code !== p.code) {
+      // Keep the previous port's content, dimmed, until the new summary lands:
+      // blanking it first made the panel collapse and spring back.
+      data = null;
+      el.body.classList.add('loading');
+      el.meta.textContent = 'Loading summary';
+      el.panel.querySelector('.panel-scroll').scrollTo({ top: 0, behavior: reduceMotionPanel ? 'auto' : 'smooth' });
+    }
     code = p.code;
     setHero(p);
     el.panel.classList.add('open');
