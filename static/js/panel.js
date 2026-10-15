@@ -555,7 +555,10 @@ window.PortPanel = (function () {
       return;
     }
     const parts = [secFacts(d.facts, d)];
-    if (d.profile === 'liquid') {          // JNPA: tankers, parcels, pipelines
+    if (d.profile === 'liquid' && d.views_missing) {
+      parts.push(`<section class="sec"><p class="empty-note">Live data for this terminal is not in the dashboard
+        database yet. It will appear here automatically once its views are mirrored.</p></section>`);
+    } else if (d.profile === 'liquid') {   // JNPA: tankers, parcels, pipelines
       if (d.liquid) parts.push(secLiquid(d.liquid));
       if (d.jetty) parts.push(secJetty(d.jetty, d, d.liquid ? d.liquid.balance_on_board : null));
       if (d.waiting) parts.push(secWaiting(d.waiting));

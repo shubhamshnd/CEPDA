@@ -165,11 +165,31 @@ def last_synced(q):
     return ts.isoformat() if ts else None
 
 
+def find_schema(conn, want):
+    """The schema that holds the jnpa_* views: the configured one if it has them,
+    else whichever schema the mirror put them in. None if they are not mirrored."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT table_schema FROM information_schema.tables
+            WHERE table_name = 'jnpa_clock'
+            ORDER BY table_schema = %s DESC, table_schema
+            LIMIT 1
+        """, (want,))
+        row = cur.fetchone()
+    if row and row[0] != want:
+        log.warning("jnpa views found in schema %s, not the configured %s", row[0], want)
+    return row[0] if row else None
+
+
 def jnpa_summary(loc, now=None):
     now = now or datetime.now()
     errors = []
     with connection() as conn:
-        q = SchemaQuery(conn, loc["schema"])
+        schema = find_schema(conn, loc.get("schema"))
+        if not schema:                  # views not mirrored into this database yet
+            log.warning("no jnpa_* views in the database for %s", loc["code"])
+            return {"profile": "liquid", "views_missing": True, "errors": []}
+        q = SchemaQuery(conn, schema)
         return {
             "profile": "liquid",
             "as_of": now.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -189,7 +209,10 @@ def jnpa_pulse(loc, now=None):
     """Light numbers for the map label: today's pumped total and tankers working."""
     try:
         with connection() as conn:
-            q = SchemaQuery(conn, loc["schema"])
+            schema = find_schema(conn, loc.get("schema"))
+            if not schema:
+                return {"ok": False, "error": "jnpa views not mirrored"}
+            q = SchemaQuery(conn, schema)
             total = q.scalar("SELECT total_qty FROM {s}.jnpa_cargo_cards WHERE card = 'today'")
             working = q.scalar("SELECT COUNT(*) FROM {s}.jnpa_vessels_on_berth WHERE status = 'Under Operation'")
             inbound = q.scalar("SELECT COUNT(*) FROM {s}.jnpa_waiting_vessels WHERE state = 'At Anchorage'")
