@@ -16,8 +16,9 @@
     { name: 'Arabian Sea', lng: 65.5, lat: 15.5 },
     { name: 'Bay of Bengal', lng: 87.5, lat: 15.5 },
   ];
-  const gArcs = gOver.append('g');
+  const gArcs = gOver.append('g').attr('class', 'arcs');
   const gMarks = gOver.append('g');
+  const gFocus = gOver.append('g');     // "Now viewing" callout, above the markers
 
   const projection = d3.geoMercator();
   const path = d3.geoPath(projection).digits(2);   // 0.01 px is plenty, and shrinks the path strings
@@ -64,11 +65,16 @@
     slideM = new DOMMatrix();
     paintBase();
   }
+  // Base map image offset/scale so that, drawn at baseT, it shows `transform`.
+  function slideTo() {
+    const s = transform.k / baseT.k;
+    slideM = new DOMMatrix([s, 0, 0, s, transform.x - s * baseT.x, transform.y - s * baseT.y]);
+    paintBase();
+  }
   const zoom = d3.zoom().on('zoom', (e) => {
     transform = e.transform;
     if (sliding) {
-      const s = transform.k / baseT.k;
-      slideM = new DOMMatrix([s, 0, 0, s, transform.x - s * baseT.x, transform.y - s * baseT.y]);
+      slideTo();
     } else {
       gMap.attr('transform', transform);
       baseT = transform;
@@ -161,7 +167,16 @@
     zoom.interpolate(samek ? d3.interpolate : d3.interpolateZoom.rho(1));
     moving = true;
     if (sliding) settleBase();         // a new move cut a slide short: bake in where it got to
-    sliding = samek && !reduceMotion;
+    // Every animated move runs on the GPU: the coastline stays drawn at one scale
+    // and is moved/scaled as an image, then redrawn sharp once when the move ends.
+    // Zooming out, draw the destination first and shrink into it, so the image
+    // only ever covers what was already drawn (no blank edges).
+    sliding = !reduceMotion;
+    if (sliding && t.k < transform.k * 0.95) {
+      gMap.attr('transform', t);
+      baseT = t;
+      slideTo();
+    }
     if (sliding) baseEl.style.willChange = 'transform';
     // Camera eases alongside the zoom. Registered first so each frame's zoom
     // event (which draws) already sees the updated camera.
@@ -265,9 +280,12 @@
     const isDev = p => p.status !== 'Operational';
 
     // Arcs: one per port, carrying the flow unless the port is still being built.
+    // Zoomed to a port they fade out; once faded there is nothing to redraw.
+    gArcs.classed('off', !!focused);
+    const arcsLive = !focused || moving;
     sparks = [];
     const arcs = [];
-    nodes.forEach(n => {
+    if (arcsLive) nodes.forEach(n => {
       const g = arcGeometry([n.x, n.y], ho, 0.42);
       arcs.push({ key: n.p.code, d: g.d, cls: 'main' + (isDev(n.p) ? ' dev' : '') });
       if (!isDev(n.p)) {
@@ -275,12 +293,14 @@
         sparks.push({ key: n.p.code, p0: [n.x, n.y], c: g.c, p1: ho });
       }
     });
-    gArcs.selectAll('path.arc').data(arcs, d => d.key)
-      .join('path')
-      .attr('class', d => 'arc ' + d.cls)
-      .attr('d', d => d.d);
-    gArcs.selectAll('circle.arc-spark').data(reduceMotion ? [] : sparks, d => d.key)
-      .join('circle').attr('class', 'arc-spark').attr('r', 2.6);
+    if (arcsLive) {
+      gArcs.selectAll('path.arc').data(arcs, d => d.key)
+        .join('path')
+        .attr('class', d => 'arc ' + d.cls)
+        .attr('d', d => d.d);
+      gArcs.selectAll('circle.arc-spark').data(reduceMotion ? [] : sparks, d => d.key)
+        .join('circle').attr('class', 'arc-spark').attr('r', 2.6);
+    }
 
     // Head office.
     const hoG = gMarks.selectAll('g.ho-mark').data([network.head_office]).join(enter => {
@@ -291,7 +311,7 @@
       g.append('text').attr('class', 'sub').attr('x', -16).attr('y', 14).attr('text-anchor', 'end');
       return g;
     });
-    hoG.attr('transform', `translate(${ho})`);
+    hoG.attr('transform', `translate(${ho})`).classed('quiet', !!focused);   // zoomed in: arcs are off, so drop its label
     hoG.select('.name').text(d => d.city);
     hoG.select('.sub').text(d => d.name);
 
@@ -324,6 +344,29 @@
       if (d.p.pulse && d.p.pulse.ok) return `${fmt.format(d.p.pulse.today)} MT today`;
       return isDev(d.p) ? 'Under development' : '';
     });
+    // "Now viewing" callout over the port the map is zoomed to. That port sits at the
+    // camera's orbit centre, so the callout stays put while the map turns under it.
+    const fn = focused && nodes.find(n => n.p.code === focused.code);
+    gFocus.selectAll('g.now').data(fn ? [fn] : [], d => d.p.code).join(enter => {
+      const g = enter.append('g').attr('class', 'now');
+      const inner = g.append('g').attr('class', 'now-in');    // CSS fade/rise; outer g carries position
+      inner.append('circle').attr('class', 'now-ring').attr('r', 15);
+      inner.append('line').attr('class', 'now-stem').attr('y1', -15).attr('y2', -92);
+      inner.append('circle').attr('class', 'now-dot').attr('cy', -92).attr('r', 3);
+      inner.append('text').attr('class', 'now-kicker').attr('y', -146).text('NOW VIEWING');
+      inner.append('text').attr('class', 'now-name').attr('y', -124);
+      inner.append('text').attr('class', 'now-stat').attr('y', -104);
+      return g;
+    })
+      .attr('transform', d => `translate(${d.x},${d.y})`)
+      .call(g => {
+        g.select('.now-name').text(d => d.p.name);
+        g.select('.now-stat').text(d => {
+          const f = d.p.facts && d.p.facts.stats[0];
+          return f ? `${f[0]} ${f[1].toLowerCase()}` : d.p.region;
+        });
+      });
+
     // While orbiting, re-place labels a few times a second, not every frame.
     const now = performance.now();
     if (!moving && (!orbit || now - lastPlaced > 400)) { placeLabels(pm, nodes, ho); lastPlaced = now; }
@@ -349,12 +392,21 @@
     const edge = width - panelWidth() - 8;
     const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
     const taken = nodes.map(n => [n.x - 8, n.y - 8, n.x + 8, n.y + 8]);   // every marker
-    const hoW = d3.max(gMarks.selectAll('g.ho-mark text').nodes(), textWidth) || 0;
+    const fn = focused && nodes.find(n => n.p.code === focused.code);
+    if (fn) {                           // the "Now viewing" callout, as wide as its widest line
+      const half = (d3.max(gFocus.selectAll('text').nodes(), textWidth) || 200) / 2 + 8;
+      taken.push([fn.x - half, fn.y - 162, fn.x + half, fn.y - 8]);
+    }
+    const hoW = focused ? 0 : d3.max(gMarks.selectAll('g.ho-mark text').nodes(), textWidth) || 0;
     taken.push([ho[0] - 18 - hoW, ho[1] - 14, ho[0] + 8, ho[1] + 18]);    // head office + its label
     const rank = d => (d.p.code === window.PortPanel.current() ? 0 : d.p.pulse && d.p.pulse.ok ? 1 : d.p.status === 'Operational' ? 2 : 3);
     // Sort a copy, not the DOM, so keyboard tab order stays as listed in config.
     pm.nodes().sort((a, b) => rank(a.__data__) - rank(b.__data__)).forEach(el => {
       const d = el.__data__, g = d3.select(el), name = g.select('.name'), sub = g.select('.sub');
+      if (fn && d === fn) {             // the callout names it already
+        name.attr('visibility', 'hidden'); sub.attr('visibility', 'hidden');
+        return;
+      }
       const hasSub = !!sub.text() && !document.body.classList.contains('panel-open');   // CSS hides subs then
       const w = Math.max(textWidth(name.node()), hasSub ? textWidth(sub.node()) : 0);
       const tries = [];
@@ -372,6 +424,8 @@
 
   // Moving spark along each main arc.
   function animate(t) {
+    requestAnimationFrame(animate);
+    if (focused && !moving) return;    // arcs are hidden while zoomed to a port
     const phase = (t % 2600) / 2600;
     gArcs.selectAll('circle.arc-spark').each(function (s) {
       const u = phase, v = 1 - u;
@@ -381,7 +435,6 @@
       this.setAttribute('cy', y);
       this.setAttribute('opacity', Math.sin(Math.PI * u).toFixed(2));
     });
-    requestAnimationFrame(animate);
   }
 
   // ── panel link ────────────────────────────────────────

@@ -74,6 +74,87 @@ LOCATIONS = [
      "lat": 25.5950, "lng": 56.2750, "overseas": True},
 ]
 
+# At-a-glance facts for the panel and the map's "Now viewing" callout. Taken from
+# each port's page on jswinfrastructure.in (Oct 2026); Jaigarh and South West Port
+# capacities from jsw.in/jsw-infrastructure. First stat is the headline.
+# Ports under development have no page yet, so no facts.
+_SITE = "https://www.jswinfrastructure.in/"
+FACTS = {
+    "DPPL": {"url": _SITE + "ports/dharamtar-port",
+             "about": "Riverine port on the Amba River, 23 nautical miles from Mumbai Harbour. "
+                      "Captive facility for JSW Steel and JSW Cement at Dolvi.",
+             "stats": [("1,197 m", "Berth length"), ("8,000 DWT", "Vessel size"), ("269 m", "Mooring dolphin")],
+             "cargo": ["Iron ore pellets", "Lumps", "Fines", "Coal", "Coke", "Limestone", "Dolomite",
+                       "Finished steel", "Clinker", "Slag"]},
+    "JPL": {"url": _SITE + "ports/jaigarh-port",
+            "about": "JSW Infrastructure's flagship and largest port by capacity. "
+                     "24/7 all-weather deep-water port between Mumbai and Goa.",
+            "stats": [("55 MTPA", "Capacity"), ("7", "Berths"), ("17.5 m", "Draft"),
+                      ("712 m", "Breakwater"), ("228 ha", "Backup area")],
+            "cargo": ["Iron ore", "Sugar exports", "Fertilisers", "Project cargo", "LPG",
+                      "Construction material", "Molasses", "Limestone", "LNG", "Containers"]},
+    "PNP": {"url": _SITE + "ports/pnp-port",
+            "about": "Near Mumbai's main gateways, MbPT and JNPT, with trimodal connectivity and a scalable land bank.",
+            "stats": [("5 MTPA", "Capacity"), ("1,000 m", "Quay length")],
+            "cargo": ["Dry bulk", "Break-bulk", "Liquid bulk", "Gases", "Containers"]},
+    "JNPTL": {"url": _SITE + "terminals/jnpt-liquid-terminal",
+              "about": "Liquid cargo terminal at JNPT with two berths and connected evacuation networks.",
+              "stats": [("2 × 300 m", "Berths"), ("90,000 DWT", "Max vessel"), ("285 m", "Max LOA"),
+                        ("14.8 / 11.8 m", "Depth below CD")],
+              "cargo": ["Edible oil", "Phosphoric acid", "Chemicals", "POL", "CBFS"]},
+    "SWPL": {"url": _SITE + "terminals/south-west-port",
+             "about": "All-weather, fully mechanised bulk terminal in the protected Mormugao Harbour.",
+             "stats": [("8.5 MTPA", "Capacity"), ("450 m", "Berth length (4A, 5A)"), ("14 m", "Draft"),
+                       ("3", "Harbour cranes"), ("2", "Ship unloaders")],
+             "cargo": ["Coal", "Limestone", "Steel products"]},
+    "MCT": {"url": _SITE + "terminals/mangalore-coal-terminal",
+            "about": "Fully mechanised bulk gateway at New Mangalore Port for steel, power and industry.",
+            "stats": [("315 m", "Berth length"), ("14 m", "Draft"), ("2", "Unloaders"), ("21.4 acres", "Stockyard")],
+            "cargo": ["Coal", "Gypsum", "Limestone", "Fertilisers"]},
+    "MCTL": {"url": _SITE + "terminals/mangalore-container-terminal",
+             "about": "Container and bulk gateway within New Mangalore Port, serving southern India.",
+             "stats": [("3", "Mobile harbour cranes"), ("8", "Reach stackers"), ("2", "Mobile hoppers"),
+                       ("1", "Empty handler")],
+             "cargo": ["Containers", "Bulk cargo"]},
+    "VOC": {"url": _SITE + "terminals/ncb-iii-voc-port",
+            "about": "Dry bulk berth at VO Chidambaranar Port, Tamil Nadu's south-eastern gateway.",
+            "stats": [("306 m", "Berth length"), ("14.2 m", "Draft"), ("2", "Ship loaders")],
+            "cargo": ["Dry bulk"]},
+    "EBT": {"url": _SITE + "terminals/ennore-bulk-terminal",
+            "about": "Mechanised clean multi-cargo terminal in Kamarajar Port; deep-draft berth for "
+                     "Post-Panamax and Baby-Cape vessels.",
+            "stats": [("100,000 m²", "Storage"), ("4", "Covered warehouses"), ("16,800 m²", "Warehouse area"),
+                      ("2", "Mobile harbour cranes")],
+            "cargo": ["General cargo", "Multi cargo", "Clean cargo"]},
+    "ECT": {"url": _SITE + "terminals/ennore-coal-terminal",
+            "about": "Fully mechanised coal and coke import terminal at Kamarajar Port, built for cape-size vessels.",
+            "stats": [("3,500 TPH", "Stacking"), ("2,000 TPH", "Reclaiming"), ("134,000 m²", "Storage")],
+            "cargo": ["Coal", "Coke", "Limestone"]},
+    "PTIO": {"url": _SITE + "terminals/paradip-terminal-iron-ore",
+             "about": "East-coast iron ore export terminal, commissioned 2020. Loads Capesize vessels within 48 hours.",
+             "stats": [("10 MTPA", "Capacity"), ("370 m", "Berth length"), ("17 m", "Draft"),
+                       ("800,000 MTPA", "Storage capacity")],
+             "cargo": ["Iron ore fines", "Pellets", "Lumps"]},
+    "PEQCT": {"url": _SITE + "terminals/paradip-east-quay-coal-terminal",
+              "about": "Deep-draft, cape-compliant, all-weather coal terminal at Paradip Port.",
+              "stats": [("30 MTPA", "Capacity"), ("686 m", "Berth length"), ("15 m", "Draft"),
+                        ("110,000 DWT", "Max vessel"), ("2", "Ship loaders")],
+              "cargo": ["Coal"]},
+    "FUJ": {"url": _SITE + "terminals/fujairah-terminal-uae",
+            "about": "Dry bulk terminal run under a long-term O&M partnership with the Port of Fujairah, "
+                     "with berth-to-yard conveyors.",
+            "stats": [("24 MTPA", "Capacity")],
+            "cargo": ["Aggregates", "Limestone"]},
+    "FUJL": {"url": _SITE + "terminals/fujairah-terminal-uae",
+             "about": "Liquid storage at Fujairah, linked to the berths by four dedicated pipelines.",
+             "stats": [("465,000 CBM", "Capacity"), ("15", "Tanks (6 heavy, 9 light fuel)"), ("4", "Pipelines")],
+             "cargo": ["Fuel oil", "Gas oil", "Diesel", "Naphtha"]},
+    "DIBBA": {"url": _SITE + "terminals/dibba-port",
+              "about": "Greenfield bulk export terminal on Fujairah's coastline.",
+              "stats": [("650 m", "Berth length"), ("15.5 m", "Draft"), ("1", "Ship loader")],
+              "cargo": ["Limestone", "Aggregates", "Clinker"]},
+}
+
 # Cumulative totals in the baseline view run up to this date; everything
 # after it comes from the throughput view.
 BASELINE_CUTOFF = "2026-03-31"

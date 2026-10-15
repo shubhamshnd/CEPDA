@@ -379,16 +379,30 @@ window.PortPanel = (function () {
   }
 
   // ── render ────────────────────────────────────────────
+  // Capacity, berths, draft and cargo from jswinfrastructure.in (config.FACTS).
+  function secFacts(f, d) {
+    if (!f) return '';
+    return `<section class="sec facts">
+      <h3>At a glance <small>${esc(d.status)}${d.overseas ? ', overseas' : ''}</small></h3>
+      <div class="stats">${f.stats.map(([v, l]) =>
+        `<div class="stat"><span class="fig">${esc(v)}</span><span>${esc(l)}</span></div>`).join('')}</div>
+      ${f.about ? `<p class="note">${esc(f.about)}</p>` : ''}
+      ${f.cargo.length ? `<div class="chips">${f.cargo.map(c => `<span>${esc(c)}</span>`).join('')}</div>` : ''}
+      <p class="src">Source: <a href="${esc(f.url)}" target="_blank" rel="noopener">jswinfrastructure.in</a></p>
+    </section>`;
+  }
+
   function render() {
     const d = data;
     if (!d.connected) {
-      el.body.innerHTML = `<section class="sec"><h3>${esc(d.status)}${d.overseas ? ' <small>Overseas</small>' : ''}</h3>
+      el.body.innerHTML = secFacts(d.facts, d) + `<section class="sec">
+        ${d.facts ? '' : `<h3>${esc(d.status)}${d.overseas ? ' <small>Overseas</small>' : ''}</h3>`}
         <p class="empty-note">Live operations data for this location is not connected to the dashboard yet.</p></section>`;
       el.body.classList.remove('loading');
       el.meta.textContent = '';
       return;
     }
-    const parts = [];
+    const parts = [secFacts(d.facts, d)];
     if (d.throughput) {
       parts.push(secToday(d.throughput, d.shift), secMonth(d.throughput, d.op_date), secFY(d.throughput), secMix(d.throughput));
     }

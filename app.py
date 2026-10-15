@@ -46,6 +46,7 @@ def _info(loc):
         "status": loc.get("status", "Operational"),
         "overseas": bool(loc.get("overseas")),
         "connected": bool(loc.get("schema")),
+        "facts": config.FACTS.get(loc["code"]),
         "image": _banner(loc),
         "berth_image": berth_url,
         "berth_image_size": _png_size(berth_path) if berth_path else None,
