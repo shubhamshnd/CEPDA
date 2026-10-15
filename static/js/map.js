@@ -138,16 +138,67 @@
     const h = SITE_SPAN / 2;
     return fitTransform([[s.lng - h, s.lat - h], [s.lng + h, s.lat + h]], 40);
   }
-  const currentView = () => (focused ? portView(focused) : homeView());
+  // Fleet view: the whole MBC channel, laid flat and north-up so the coast reads
+  // naturally (the user can still drag to turn it).
+  let fleetMode = false;
+  function fleetView() {
+    const pts = Object.values(network.fleet_route.legs).flat();
+    const lat = d3.extent(pts, p => p[0]), lng = d3.extent(pts, p => p[1]);
+    return fitTransform([[lng[0], lat[0]], [lng[1], lat[1]]], 150);   // room for the key and hint below
+  }
+  const currentView = () => (fleetMode ? fleetView() : focused ? portView(focused) : homeView());
 
   // Camera settings: tilted and centred on the visible map when zoomed to a port.
-  const camFocus = () => ({ tilt: TILT, ox: sideInset() + (width - panelWidth() - sideInset()) / 2, oy: height / 2 });
+  let tiltPref = TILT;                  // the user can change the tilt by dragging; kept between ports
+  const camFocus = () => ({ tilt: tiltPref, ox: sideInset() + (width - panelWidth() - sideInset()) / 2, oy: height / 2 });
   const zoomHint = document.getElementById('zoom-hint');
+
+  // ── turning the zoomed-in map ─────────────────────────
+  // Auto-rotation can be paused from the button (bottom-left). Dragging the map,
+  // or the arrow keys, turn it (left/right) and tilt it (up/down) by hand, which
+  // pauses auto-rotation; the button turns it back on.
+  let autoRotate = !reduceMotion;
+  const rotCtl = document.getElementById('rot-ctl'), rotBtn = document.getElementById('btn-rot');
+  function setAuto(on) {
+    autoRotate = on;
+    rotBtn.setAttribute('aria-pressed', String(on));
+    rotBtn.querySelector('span').textContent = on ? 'Pause rotation' : 'Auto-rotate';
+    if (on && focused) startOrbit(); else stopOrbit();
+  }
+  const clampTilt = t => Math.max(0, Math.min(70, t));
+  function turnBy(dRot, dTilt) {
+    if (autoRotate) setAuto(false);
+    cam.rot += dRot;
+    cam.tilt = tiltPref = clampTilt(cam.tilt + dTilt);
+    updateCam();
+    drawOverlay();
+  }
+  let drag = null;
+  svg.on('pointerdown.turn', e => {
+    if (!focused || moving || e.button !== 0 || e.target.closest('.port-mark, .ship')) return;
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, live: false };
+  });
+  svg.on('pointermove.turn', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.live && Math.hypot(dx, dy) < 4) return;   // a click or double-click, not a drag
+    if (!drag.live) { drag.live = true; svg.node().setPointerCapture(e.pointerId); svg.classed('turning', true); }
+    drag.x = e.clientX; drag.y = e.clientY;
+    turnBy(dx * 0.3, -dy * 0.25);
+  });
+  svg.on('pointerup.turn pointercancel.turn', () => { drag = null; svg.classed('turning', false); });
+  document.addEventListener('keydown', e => {
+    if (!focused || (e.target.closest && e.target.closest('#panel, #side, input, textarea, select'))) return;
+    const turn = { ArrowLeft: -10, ArrowRight: 10 }[e.key] || 0, tilt = { ArrowUp: 5, ArrowDown: -5 }[e.key] || 0;
+    if (!turn && !tilt) return;
+    e.preventDefault();
+    turnBy(turn, tilt);
+  });
 
   // Slow orbit while zoomed to a port.
   let orbit = null;
   function startOrbit() {
-    if (orbit || reduceMotion) return;
+    if (orbit || reduceMotion || !autoRotate) return;
     let last = 0;
     orbit = d3.timer(t => {
       cam.rot = (cam.rot + (t - last) * ORBIT_DEG_PER_S / 1000) % 360;
@@ -160,8 +211,10 @@
 
   // Back to the overview: flat, north up, everything visible (beside the panel if open).
   function reset(ms) {
+    if (fleetMode) { setFleetMode(false); return; }   // first step back: fleet view -> port view
     focused = null;
     zoomHint.hidden = true;
+    rotCtl.hidden = true;
     stopOrbit();
     cam.rot = ((cam.rot % 360) + 540) % 360 - 180;   // same angle, but unwind the short way
     go(homeView(), ms, { tilt: 0, rot: 0 });
@@ -402,7 +455,7 @@
   function drawFleet() {
     const R = network.fleet_route;
     const F = (network.fleet || []).filter(m => R && R.status[m.status]);
-    const show = !!focused && (R.show_for || []).includes(focused.code) && F.length > 0;
+    const show = F.length > 0 && (fleetMode || (!!focused && (R.show_for || []).includes(focused.code)));
     gFleet.classed('off', !show);
     fleetKey.hidden = !show;
     if (!show && !moving) return;       // faded out: nothing to redraw
@@ -452,21 +505,34 @@
         }
       }
     }
-    gFleet.selectAll('g.ship').data(ships, d => d.m.name).join(enter => {
+    const sel = gFleet.selectAll('g.ship').data(ships, d => d.m.name).join(enter => {
       const g = enter.append('g').attr('class', 'ship');
       g.append('path').attr('d', HULL);
+      g.append('text').attr('x', 9).attr('y', 4);
       g.append('title');
       return g;
     })
-      .attr('transform', d => `translate(${d.x},${d.y}) rotate(${d.a})`)
+      .attr('transform', d => `translate(${d.x},${d.y})`)
       .classed('empty', d => d.m.status.startsWith('EMPTY'))
-      .select('title').text(d => `${d.m.name}${d.m.cargo ? ' · ' + d.m.cargo : ''}\n${stageText(d.m.status)}`);
+      .classed('under-way', d => R.status[d.m.status][0] === 'leg');
+    sel.select('path').attr('transform', d => `rotate(${d.a})`);
+    sel.select('text').text(d => d.m.name.replace(/^JSW\s+/i, ''));
+    sel.select('title').text(d => `${d.m.name}${d.m.cargo ? ' · ' + d.m.cargo : ''}\n${stageText(d.m.status)}`);
 
-    // Anchorages that are not JSW locations (Gull Island) get their own label.
-    gFleet.selectAll('text.anch').data(Object.values(R.anchors).filter(a => a.label), a => a.name).join('text')
-      .attr('class', 'anch').attr('text-anchor', 'middle')
-      .attr('transform', a => { const [x, y] = screen(a.lng, a.lat); return `translate(${x},${y - 18})`; })
-      .text(a => a.name);
+    // Anchorage labels: Gull Island always (it is not a JSW location); in fleet view
+    // every anchorage with ships, with how many are waiting there.
+    // Anchorages of one port (berth + anchorage) share a label, at the first listed.
+    const groupOf = a => a.group || a.name;
+    const waiting = d3.rollup(F.filter(m => R.status[m.status][0] === 'at'), v => v.length,
+                              m => groupOf(R.anchors[R.status[m.status][1]]));
+    const firsts = new Map();
+    Object.values(R.anchors).forEach(a => { if (!firsts.has(groupOf(a))) firsts.set(groupOf(a), a); });
+    const anchs = [...firsts].filter(([g, a]) => a.label || (fleetMode && waiting.get(g)));
+    // Left of the anchorage: ship names sit to the right of their ships.
+    gFleet.selectAll('text.anch').data(anchs, d => d[0]).join('text')
+      .attr('class', 'anch').attr('text-anchor', 'end')
+      .attr('transform', ([, a]) => { const [x, y] = screen(a.lng, a.lat); return `translate(${x - 16},${y + 4})`; })
+      .text(([g]) => fleetMode && waiting.get(g) ? `${g} · ${waiting.get(g)}` : g);
   }
 
   // Label text never changes width, so measure each string once. Reading text
@@ -510,7 +576,7 @@
     const hoW = focused ? 0 : d3.max(gMarks.selectAll('g.ho-mark text').nodes(), textWidth) || 0;
     taken.push([ho[0] - 18 - hoW, ho[1] - 14, ho[0] + 8, ho[1] + 18]);    // head office + its label
     // Page furniture drawn over the map: logo block, clock, zoom hint.
-    document.querySelectorAll('#side, .clock, #zoom-hint:not([hidden]), #fleet-key:not([hidden]), #support').forEach(n => {
+    document.querySelectorAll('#side, .clock, #zoom-hint:not([hidden]), #fleet-key:not([hidden]), #rot-ctl:not([hidden]), #support').forEach(n => {
       const r = n.getBoundingClientRect();
       taken.push([r.left - 6, r.top - 6, r.right + 6, r.bottom + 6]);
     });
@@ -580,14 +646,30 @@
     });
   }
 
+  // Fleet view on/off (the MBC fleet key is the button). Rotation pauses so the
+  // ships hold still to be read; port and terminal markers fade out.
+  function setFleetMode(on) {
+    fleetMode = on;
+    document.body.classList.toggle('fleet-mode', on);
+    fleetKey.setAttribute('aria-pressed', String(on));
+    if (on) {
+      setAuto(false);
+      cam.rot = ((cam.rot % 360) + 540) % 360 - 180;   // unwind the short way to north-up
+    }
+    drawOverlay();
+    go(currentView(), 1000, on ? { ...camFocus(), tilt: 0, rot: 0 } : focused ? camFocus() : { tilt: 0, rot: 0 });
+  }
+
   // ── panel link ────────────────────────────────────────
   function openPort(code) {
     const p = network.ports.find(x => x.code === code);
     if (!p) return;
     window.PortPanel.open(p);
+    if (fleetMode) { fleetMode = false; document.body.classList.remove('fleet-mode'); fleetKey.setAttribute('aria-pressed', 'false'); }
     drawOverlay();
     focused = p;
     zoomHint.hidden = false;
+    rotCtl.hidden = false;
     go(portView(p), 1100, camFocus()); // zoom in, tilt, and slide the port into the left half
     startOrbit();
   }
@@ -681,6 +763,8 @@
     resize();
     if (!reduceMotion) requestAnimationFrame(animate);
     window.addEventListener('resize', resize);
+    rotBtn.onclick = () => setAuto(!autoRotate);
+    fleetKey.onclick = () => setFleetMode(!fleetMode);
     // Double-click anywhere on the map (not a port) or Esc zooms back out.
     svg.on('dblclick', e => { if (focused && !e.target.closest('.port-mark')) reset(1100); });
     document.addEventListener('keydown', e => {

@@ -86,17 +86,42 @@ button { font: inherit; color: inherit; }
 .fleet .anch { fill: var(--text-2); font-size: 12.5px; font-style: italic; letter-spacing: .06em;
   paint-order: stroke; stroke: var(--sea); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
 .fleet-key {
-  position: absolute; right: 70px; bottom: calc(66px + var(--safe-b)); pointer-events: none;
+  position: absolute; right: 70px; bottom: calc(66px + var(--safe-b)); cursor: pointer; font: inherit;
   display: flex; align-items: center; gap: 12px; transition: right .35s ease;
   background: rgba(13, 26, 51, .85); border: 1px solid var(--rule); border-radius: 6px;
   padding: 6px 12px; font-size: 12.5px; color: var(--text-2);
 }
 .fleet-key[hidden] { display: none; }
+.fleet-key:hover { border-color: var(--coast); }
+.fleet-key[aria-pressed="true"] { border-color: #E3B04B; box-shadow: 0 0 0 1px #E3B04B inset; }
+
+/* Fleet view: ports and terminals step back, ships under way are named */
+.ho-mark, g.now { transition: opacity .4s ease; }
+body.fleet-mode .port-mark, body.fleet-mode .ho-mark, body.fleet-mode g.now { opacity: 0; pointer-events: none; }
+.fleet .ship text { display: none; font-size: 11.5px; fill: var(--text); paint-order: stroke; stroke: var(--sea); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+body.fleet-mode .fleet .ship.under-way text { display: block; }
 .fleet-key span { display: inline-flex; align-items: center; gap: 6px; }
 .fleet-key b { color: var(--text); font-weight: 600; }
 .fleet-key path.loaded { fill: #E3B04B; }
 .fleet-key path.empty { fill: var(--wait); }
 body.panel-open .fleet-key { right: calc(var(--panel-w) + 70px); }
+
+/* Rotation control, bottom-left of the map (beside the sidebar; in the corner while the panel hides it) */
+.rot-ctl {
+  position: absolute; left: 376px; bottom: calc(24px + var(--safe-b)); z-index: 6;
+  display: flex; align-items: center; gap: 10px; transition: left .45s cubic-bezier(.2, .7, .2, 1);
+}
+.rot-ctl[hidden] { display: none; }
+body.panel-open .rot-ctl { left: 24px; }
+.rot-ctl button {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  background: rgba(13, 26, 51, .85); border: 1px solid var(--rule); border-radius: 999px;
+  padding: 6px 12px; font-size: 13px; color: var(--text);
+}
+.rot-ctl button:hover { border-color: var(--coast); }
+.rot-ctl button[aria-pressed="true"] .i-play, .rot-ctl button[aria-pressed="false"] .i-pause { display: none; }
+.rot-ctl button[aria-pressed="false"] { color: var(--port-hi); border-color: var(--coast); }
+#map.turning { cursor: grabbing; }
 .arcs.off { opacity: 0; }
 
 /* "Now viewing" callout on the port the map is zoomed to */
@@ -484,6 +509,7 @@ body.panel-open .support { right: calc(var(--panel-w) + 24px); }
   .brand-logo { height: 40px; }
   .zoom-hint { right: 62px; bottom: calc(16px + var(--safe-b)); }
   .support { right: 16px; bottom: calc(16px + var(--safe-b)); }
+  .rot-ctl, body.panel-open .rot-ctl { left: 16px; bottom: calc(16px + var(--safe-b)); }
   .panel {
     top: auto; height: 86%; width: 100%;
     border-left: 0; border-top: 1px solid var(--rule); border-radius: 14px 14px 0 0;

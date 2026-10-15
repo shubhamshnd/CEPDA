@@ -88,11 +88,11 @@ LOCATIONS = [
 # Waypoints are [lat, lng] along the channel traced on the chart.
 MBC_ROUTE = {
     "anchors": {
-        "jaigarh_berth":   {"name": "Jaigarh", "lat": 17.297, "lng": 73.208},
-        "jaigarh":         {"name": "Jaigarh anchorage", "lat": 17.3101083, "lng": 73.1607203},
+        "jaigarh_berth":   {"name": "Jaigarh", "lat": 17.297, "lng": 73.208, "group": "Jaigarh"},
+        "jaigarh":         {"name": "Jaigarh anchorage", "lat": 17.3101083, "lng": 73.1607203, "group": "Jaigarh"},
         "gull":            {"name": "Gull Island", "lat": 18.840, "lng": 72.893, "label": True},
-        "dharamtar":       {"name": "Dharamtar anchorage", "lat": 18.7192579, "lng": 73.0130969},
-        "dharamtar_berth": {"name": "Dharamtar berths", "lat": 18.7065425, "lng": 73.0268662},
+        "dharamtar":       {"name": "Dharamtar anchorage", "lat": 18.7192579, "lng": 73.0130969, "group": "Dharamtar"},
+        "dharamtar_berth": {"name": "Dharamtar berths", "lat": 18.7065425, "lng": 73.0268662, "group": "Dharamtar"},
     },
     # The traced channel (Jaigarh -> open sea -> Gull Island -> Amba river -> Dharamtar),
     # split at Gull Island. Empty MBCs run it in reverse.

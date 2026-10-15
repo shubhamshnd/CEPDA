@@ -27,10 +27,17 @@
   </div>
 
   <p id="zoom-hint" class="zoom-hint" hidden>Double-click the map or press Esc to zoom out</p>
-  <p id="fleet-key" class="fleet-key" hidden><b>MBC fleet</b>
+  <div id="rot-ctl" class="rot-ctl" hidden>
+    <button type="button" id="btn-rot" aria-pressed="true" title="Drag the map or use the arrow keys to turn and tilt it">
+      <svg class="i-pause" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M5 3v10M11 3v10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <svg class="i-play" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.6h-2.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Pause rotation</span>
+    </button>
+  </div>
+  <button type="button" id="fleet-key" class="fleet-key" aria-pressed="false" title="Show the MBC fleet along the channel" hidden><b>MBC fleet</b>
     <span><svg viewBox="-7 -4 15 8" width="15" height="8" aria-hidden="true"><path class="loaded" d="M7,0 L3,-3.2 L-6,-3.2 L-6,3.2 L3,3.2 Z"/></svg>Loaded <b data-n="loaded">0</b></span>
     <span><svg viewBox="-7 -4 15 8" width="15" height="8" aria-hidden="true"><path class="empty" d="M7,0 L3,-3.2 L-6,-3.2 L-6,3.2 L3,3.2 Z"/></svg>Empty <b data-n="empty">0</b></span>
-  </p>
+  </button>
 
   <details id="support" class="support">
     <summary aria-label="Support and credits" title="Support">
