@@ -79,7 +79,6 @@ LOCATIONS = [
 # and About us, Oct 2026). Update when new annual figures are out.
 COMPANY = {
     "source": "https://www.jswinfrastructure.in/",
-    "tagline": "India's second-largest private port operator",
     "kpis": [
         {"value": "183", "unit": "MTPA", "label": "Operational capacity"},
         {"value": "122", "unit": "MMT", "label": "Cargo handled"},

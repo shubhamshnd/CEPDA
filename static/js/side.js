@@ -31,7 +31,6 @@ window.SidePanel = (function () {
     const pct = Math.round(c.target.now / c.target.goal * 100);
 
     el.innerHTML = `
-      <p class="side-tag">${esc(c.tagline)}</p>
       <div class="kpis">${c.kpis.map(k => `<div class="kpi"><b>${esc(k.value)}<small>${esc(k.unit)}</small></b><span>${esc(k.label)}</span></div>`).join('')}</div>
       <div class="target">
         <div class="target-row"><span>Capacity target</span><span>${c.target.now} of <b>${c.target.goal} MTPA</b> by ${esc(c.target.by)}</span></div>
