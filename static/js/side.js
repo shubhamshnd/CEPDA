@@ -17,11 +17,6 @@ window.SidePanel = (function () {
 
   const chevron = '<svg class="grp-chev" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
-  function headline(p) {
-    const s = p.facts && p.facts.stats[0];
-    return s ? `${s[0]} ${s[1].toLowerCase()}` : '';
-  }
-
   function render(network) {
     const c = network.company;
     const byGroup = Object.fromEntries(GROUPS.map(([k]) => [k, []]));
@@ -42,7 +37,7 @@ window.SidePanel = (function () {
           </button>
           <div class="grp-body"><ul>${ps.map(p => `<li><button type="button" class="loc" data-code="${esc(p.code)}">
             <span class="loc-dot${p.status !== 'Operational' ? ' dev' : ''}${p.pulse && p.pulse.ok ? ' live' : ''}"></span>
-            <span class="loc-name">${esc(p.name)}</span><span class="loc-stat">${esc(headline(p))}</span>
+            <span class="loc-name">${esc(p.name)}</span>
             <span class="loc-region">${esc(p.region)}</span></button></li>`).join('')}</ul></div>
         </section>`;
       }).join('')}</div>
