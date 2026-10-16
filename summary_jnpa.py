@@ -68,20 +68,32 @@ def throughput(q):
 
 
 def prev_month(q, month_start):
-    """Last month's actual against its target, same rules as the month card: LUEU log
-    by interval start over the 07:00 operational days, short-closes excluded."""
+    """Last month's actual against its target.
+
+    The actual is PORTMAN2 Report-5's month total (report5.fetch_month_figures):
+    the MIS figure for months before the July 2026 cutover or already migrated,
+    else the LUEU log of vessels booked to the month they cast off. That lives in
+    the jnpa_month_totals view (PORTMAN2). Until the mirror has
+    it, fall back to the parcel log by log time over 07:00 days, marked provisional.
+    """
     y, m = (month_start.year, month_start.month - 1) if month_start.month > 1 else (month_start.year - 1, 12)
     start = month_start.replace(year=y, month=m)
-    total = q.scalar("""
-        SELECT SUM(quantity) FROM {s}.jnpa_parcel_log
-        WHERE NOT excluded_from_throughput AND start_ts >= %(a)s AND start_ts < %(b)s
-    """, {"a": start, "b": month_start})
+    try:
+        total = q.scalar("SELECT quantity FROM {s}.jnpa_month_totals WHERE mon_yy = %(m)s",
+                         {"m": start.strftime("%b-%y")})
+        basis = "report5"
+    except Exception:
+        total = q.scalar("""
+            SELECT SUM(quantity) FROM {s}.jnpa_parcel_log
+            WHERE NOT excluded_from_throughput AND start_ts >= %(a)s AND start_ts < %(b)s
+        """, {"a": start, "b": month_start})
+        basis = "provisional"
     fy = y if m >= 4 else y - 1                      # March belongs to the FY that began the April before
     target = q.scalar("""
         SELECT SUM(effective_target) FROM {s}.jnpa_fy_targets
         WHERE financial_year = %(fy)s AND month = %(mon)s
     """, {"fy": f"{fy}-{(fy + 1) % 100:02d}", "mon": start.strftime("%b")})
-    return {"label": start.strftime("%B %Y"), "total": _f(total), "target": _f(target)}
+    return {"label": start.strftime("%B %Y"), "total": _f(total), "target": _f(target), "basis": basis}
 
 
 def berths(q):

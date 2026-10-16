@@ -162,6 +162,7 @@ window.PortPanel = (function () {
         <i class="${gap < 0 ? 'behind' : ''}" style="width:${Math.min(pc, 100)}%"></i>
       </div>
       <p class="note">${gap >= 0 ? `Target beaten by <strong>${mt(gap)} MT</strong>.` : `Short of target by <strong>${mt(-gap)} MT</strong>.`}</p>
+      ${p.basis === 'provisional' ? '<p class="note muted">Provisional figure, until the month is finalised.</p>' : ''}
     </section>`;
   }
 
