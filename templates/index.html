@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>/* theme before first paint, so a light-theme viewer never sees a dark flash */
+try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>JSW Infrastructure | Port network</title>
@@ -16,9 +18,19 @@
 
   <aside id="side" class="side" aria-label="JSW Infrastructure at a glance">
     <div class="side-head">
-      <img class="brand-logo" src="{{ url_for('static', filename='img/jsw-logo-white.png') }}" alt="JSW Infrastructure">
+      <img class="brand-logo logo-on-dark" src="{{ url_for('static', filename='img/jsw-logo-white.png') }}" alt="JSW Infrastructure">
+      <img class="brand-logo logo-on-light" src="{{ url_for('static', filename='img/jsw-logo-black.png') }}" alt="JSW Infrastructure">
     </div>
     <div id="side-body" class="side-body"><p class="side-tag">Loading locations</p></div>
+    <div class="side-foot">
+      <button type="button" class="switch" id="sw-lines" role="switch" aria-checked="true"><i></i>Show lines</button>
+      <button type="button" class="theme-toggle" id="sw-theme" role="switch" aria-checked="false"
+              aria-label="Light theme" title="Switch between dark and light">
+        <span class="tt-thumb" aria-hidden="true"></span>
+        <svg class="tt-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" fill="currentColor"/></svg>
+        <svg class="tt-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
   </aside>
 
   <div class="clock" aria-live="off">

@@ -345,8 +345,10 @@
 
     // Arcs: one per port, carrying the flow unless the port is still being built.
     // Zoomed to a port they fade out; once faded there is nothing to redraw.
+    // Hidden when zoomed to a port or switched off in the sidebar; once faded, not redrawn.
+    const linesOn = !document.body.classList.contains('no-lines');
     gArcs.classed('off', !!focused);
-    const arcsLive = !focused || moving;
+    const arcsLive = linesOn && (!focused || moving);
     sparks = [];
     const arcs = [];
     if (arcsLive) nodes.forEach(n => {
@@ -634,7 +636,7 @@
   // Moving spark along each main arc.
   function animate(t) {
     requestAnimationFrame(animate);
-    if (focused && !moving) return;    // arcs are hidden while zoomed to a port
+    if ((focused && !moving) || document.body.classList.contains('no-lines')) return;   // arcs hidden
     const phase = (t % 2600) / 2600;
     gArcs.selectAll('circle.arc-spark').each(function (s) {
       const u = phase, v = 1 - u;
@@ -686,6 +688,7 @@
       if (highlight) drawOverlay();     // a dimmed port shows its name while hovered
     },
     open: code => openPort(code),
+    redraw: () => { if (network) drawOverlay(); },
   };
 
   // ── clock ─────────────────────────────────────────────

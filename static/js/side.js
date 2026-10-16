@@ -73,5 +73,40 @@ window.SidePanel = (function () {
   const support = document.getElementById('support');
   document.addEventListener('click', e => { if (support.open && !support.contains(e.target)) support.open = false; });
 
+  // ── footer switches: reporting lines, light theme (remembered in this browser) ──
+  const store = {
+    get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private window: just not remembered */ } },
+  };
+  const swLines = document.getElementById('sw-lines'), swTheme = document.getElementById('sw-theme');
+  function setLines(on) {
+    swLines.setAttribute('aria-checked', String(on));
+    document.body.classList.toggle('no-lines', !on);
+    store.set('lines', on ? '1' : '0');
+    if (window.PortMap) window.PortMap.redraw();
+  }
+  function applyTheme(light) {
+    document.documentElement.dataset.theme = light ? 'light' : 'dark';
+    swTheme.setAttribute('aria-checked', String(light));
+    store.set('theme', light ? 'light' : 'dark');
+  }
+  // The new theme spreads out from the switch as a growing circle (View Transitions).
+  // Browsers without them, and reduced-motion viewers, just switch.
+  function setTheme(light, from) {
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!from || still || !document.startViewTransition) { applyTheme(light); return; }
+    const r = from.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const reach = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    document.startViewTransition(() => applyTheme(light)).ready.then(() => {
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${reach}px at ${x}px ${y}px)`] },
+        { duration: 650, easing: 'cubic-bezier(.2, .7, .2, 1)', pseudoElement: '::view-transition-new(root)' });
+    }).catch(() => {});
+  }
+  swLines.addEventListener('click', () => setLines(swLines.getAttribute('aria-checked') !== 'true'));
+  swTheme.addEventListener('click', () => setTheme(swTheme.getAttribute('aria-checked') !== 'true', swTheme));
+  setLines(store.get('lines') !== '0');
+  setTheme(document.documentElement.dataset.theme === 'light');
+
   return { render };
 })();
