@@ -62,7 +62,7 @@ LOCATIONS = [
     {"code": "EBT", "name": "Ennore Bulk Terminal", "region": "Kamarajar Port, Tamil Nadu",
      "lat": 13.2620, "lng": 80.3300},
     {"code": "ECT", "name": "Ennore Coal Terminal", "region": "Kamarajar Port, Tamil Nadu",
-     "lat": 13.2570, "lng": 80.3320},
+     "lat": 13.2570, "lng": 80.3320, "image": "img/ennore_coal.png"},
     {"code": "PTIO", "name": "Paradip Terminal, Iron Ore", "region": "Paradip, Odisha",
      "lat": 20.2640, "lng": 86.6760, "image": "img/paradip-iron-ore_drone.jpg"},
     {"code": "PEQCT", "name": "Paradip East Quay Coal Terminal", "region": "Paradip, Odisha",
