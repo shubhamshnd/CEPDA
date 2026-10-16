@@ -73,11 +73,9 @@ LOCATIONS = [
      "lat": 22.5400, "lng": 88.3100, "status": DEV},
     # ── Overseas ──
     {"code": "FUJ", "name": "Fujairah Terminal", "region": "Fujairah, UAE",
-     "lat": 25.1700, "lng": 56.3600, "overseas": True},
-    {"code": "FUJL", "name": "Fujairah Liquid Storage", "region": "Fujairah, UAE",
-     "lat": 25.1350, "lng": 56.3550, "overseas": True},
+     "lat": 25.1700, "lng": 56.3600, "overseas": True, "image": "img/jsw meltc.webp"},
     {"code": "DIBBA", "name": "Dibba Port", "region": "Dibba, UAE",
-     "lat": 25.5950, "lng": 56.2750, "overseas": True},
+     "lat": 25.5950, "lng": 56.2750, "overseas": True, "image": "img/dibba.jpg"},
 ]
 
 # MBC shuttle feeding Dharamtar: load at Jaigarh, sail up the coast to Gull Island
@@ -197,15 +195,14 @@ FACTS = {
               "stats": [("30 MTPA", "Capacity"), ("686 m", "Berth length"), ("15 m", "Draft"),
                         ("110,000 DWT", "Max vessel"), ("2", "Ship loaders")],
               "cargo": ["Coal"]},
+    # JSW MELTC: one terminal; JSW's Fujairah page lists the liquid storage and the
+    # 24 MTPA bulk handling (run with the Port of Fujairah) together.
     "FUJ": {"url": _SITE + "terminals/fujairah-terminal-uae",
-            "about": "Dry bulk terminal run under a long-term O&M partnership with the Port of Fujairah, "
-                     "with berth-to-yard conveyors.",
-            "stats": [("24 MTPA", "Capacity")],
-            "cargo": ["Aggregates", "Limestone"]},
-    "FUJL": {"url": _SITE + "terminals/fujairah-terminal-uae",
-             "about": "Liquid storage at Fujairah, linked to the berths by four dedicated pipelines.",
-             "stats": [("465,000 CBM", "Capacity"), ("15", "Tanks (6 heavy, 9 light fuel)"), ("4", "Pipelines")],
-             "cargo": ["Fuel oil", "Gas oil", "Diesel", "Naphtha"]},
+            "about": "JSW Middle East Liquid Terminal (MELTC): tank storage linked to the berths by four "
+                     "dedicated pipelines, plus bulk handling under a long-term O&M partnership with the Port of Fujairah.",
+            "stats": [("465,000 CBM", "Liquid storage"), ("15", "Tanks (6 heavy, 9 light fuel)"),
+                      ("4", "Pipelines to berths"), ("24 MTPA", "Bulk capacity")],
+            "cargo": ["Fuel oil", "Gas oil", "Diesel", "Naphtha", "Aggregates", "Limestone"]},
     "DIBBA": {"url": _SITE + "terminals/dibba-port",
               "about": "Greenfield bulk export terminal on Fujairah's coastline.",
               "stats": [("650 m", "Berth length"), ("15.5 m", "Draft"), ("1", "Ship loader")],
