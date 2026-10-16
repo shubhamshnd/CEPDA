@@ -128,9 +128,20 @@ def throughput(q, today, now):
     month_needed = max(month_target - month_done_before, 0) / month_days_left if month_target else None
     fy_needed = max(fy_target - fy_done_before, 0) / fy_days_left if fy_target else None
 
-    # Average over completed op-days this month (today is still in progress).
+    # Average over completed op-days (today is still in progress).
     done_days = today.day - 1
     month_avg = (month_done_before / done_days) if done_days else None
+    fy_done_days = (today - fy_start).days
+    fy_avg = (fy_done_before / fy_done_days) if fy_done_days else None
+
+    # Last month, against its own target (April's last month is March of the previous FY).
+    prev_end = month_start - timedelta(days=1)
+    prev_start = prev_end.replace(day=1)
+    prev_total = sum(_by_type(q, prev_start, prev_end).values())
+    prev_target = _f(q.scalar("""
+        SELECT effective_target FROM {s}.vw_port_overview_fy_targets
+        WHERE financial_year = %(fy)s AND month_num = %(m)s
+    """, {"fy": fy_label(fy_start_year(prev_start)), "m": prev_start.month}))
 
     baseline = _baseline_total(q)
     since_baseline = float(q.scalar(f"""
@@ -164,8 +175,10 @@ def throughput(q, today, now):
             "target": fy_target,
             "by_type": fy_types,
             "days_left": fy_days_left,
+            "avg_per_day": _f(fy_avg) if fy_avg is not None else None,
             "needed_per_day": _f(fy_needed) if fy_needed is not None else None,
         },
+        "prev_month": {"label": prev_start.strftime("%B %Y"), "total": _f(prev_total), "target": prev_target},
         "cumulative": _f(baseline + since_baseline),
     }
 

@@ -10,7 +10,7 @@ last sync, which keeps every number consistent with each other.
 """
 import calendar
 import logging
-from datetime import datetime
+from datetime import date, datetime
 
 from db import SchemaQuery, connection
 from summary import _f, _run
@@ -30,7 +30,7 @@ def _num(v):
 
 
 def throughput(q):
-    c = q.one("SELECT op_date, month_days_left, fy_days_left, fy_start_year FROM {s}.jnpa_clock")
+    c = q.one("SELECT op_date, month_start, month_days_left, fy_days_left, fy_start_year FROM {s}.jnpa_clock")
     cards = {r["card"]: r for r in q.all("SELECT * FROM {s}.jnpa_cargo_cards")}
     bob = q.scalar("SELECT SUM(qty) FROM {s}.jnpa_cargo_throughput WHERE period = 'balance_on_board'")
 
@@ -50,14 +50,38 @@ def throughput(q):
     op_date = c["op_date"]
     dim = calendar.monthrange(op_date.year, op_date.month)[1]
     fy_days = (datetime(c["fy_start_year"] + 1, 3, 31) - datetime(c["fy_start_year"], 4, 1)).days + 1
+    today_total = card("today")["total"]
     month = {**card("current_month"), "days_left": int(c["month_days_left"]),
              "share": (dim - int(c["month_days_left"])) / dim}
     fy = {**card("current_fy"), "days_left": int(c["fy_days_left"]),
           "share": (fy_days - int(c["fy_days_left"])) / fy_days}
+    # MT/day so far, over completed op-days (today is still in progress).
+    done = op_date.day - 1
+    month["avg_per_day"] = _f((month["total"] - today_total) / done) if done else None
+    fy_done = (op_date - date(c["fy_start_year"], 4, 1)).days
+    fy["avg_per_day"] = _f((fy["total"] - today_total) / fy_done) if fy_done else None
     return {
         "today": card("today"), "yesterday": card("yesterday"), "month": month, "fy": fy,
+        "prev_month": prev_month(q, c["month_start"]),
         "cumulative": card("all_time")["total"], "balance_on_board": _f(bob),
     }
+
+
+def prev_month(q, month_start):
+    """Last month's actual against its target, same rules as the month card: LUEU log
+    by interval start over the 07:00 operational days, short-closes excluded."""
+    y, m = (month_start.year, month_start.month - 1) if month_start.month > 1 else (month_start.year - 1, 12)
+    start = month_start.replace(year=y, month=m)
+    total = q.scalar("""
+        SELECT SUM(quantity) FROM {s}.jnpa_parcel_log
+        WHERE NOT excluded_from_throughput AND start_ts >= %(a)s AND start_ts < %(b)s
+    """, {"a": start, "b": month_start})
+    fy = y if m >= 4 else y - 1                      # March belongs to the FY that began the April before
+    target = q.scalar("""
+        SELECT SUM(effective_target) FROM {s}.jnpa_fy_targets
+        WHERE financial_year = %(fy)s AND month = %(mon)s
+    """, {"fy": f"{fy}-{(fy + 1) % 100:02d}", "mon": start.strftime("%b")})
+    return {"label": start.strftime("%B %Y"), "total": _f(total), "target": _f(target)}
 
 
 def berths(q):

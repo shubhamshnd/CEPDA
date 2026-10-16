@@ -128,7 +128,40 @@ window.PortPanel = (function () {
         <i class="${behind ? 'behind' : ''}" style="width:${Math.min(p, 100)}%"></i>
         <span class="pace" style="left:${(elapsedShare * 100).toFixed(1)}%" title="Where the total should be today"></span>
       </div>
-      <p class="note">${footer}</p>
+      ${footer}
+    </section>`;
+  }
+
+  // MT/day still needed to reach the target, next to the rate so far.
+  function paceRow(p) {
+    if (!p.target) return '';
+    const met = p.total >= p.target || (p.needed_per_day != null && p.needed_per_day <= 0);
+    const left = p.days_left === 1 ? 'today only' : `${p.days_left} days left`;
+    return `<div class="pace-row">
+      <div class="pace-k ${met ? 'good' : 'need'}"><span class="fig">${met ? 'Met' : mt(p.needed_per_day)}</span>
+        <span>${met ? 'Target reached' : `MT/day needed, ${left}`}</span></div>
+      ${p.avg_per_day != null ? `<div class="pace-k"><span class="fig">${mt(p.avg_per_day)}</span><span>MT/day so far</span></div>` : ''}
+    </div>`;
+  }
+
+  function secPrevMonth(p) {
+    if (!p) return '';
+    if (!p.target) {
+      return `<section class="sec"><h3>Last month <small>${esc(p.label)}</small></h3>
+        <div><span class="fig fig-l">${mt(p.total)}</span><span class="unit">MT</span></div>
+        <p class="note muted">No target was set for last month.</p></section>`;
+    }
+    const pc = pct(p.total, p.target), gap = p.total - p.target;
+    return `<section class="sec">
+      <h3>Last month <small>${esc(p.label)}</small></h3>
+      <div class="progress">
+        <div><span class="fig fig-l">${mt(p.total)}</span><span class="unit">of ${mt(p.target)} MT</span></div>
+        <span class="pct ${gap >= 0 ? 'good' : 'short'}">${pc}%</span>
+      </div>
+      <div class="meter" role="img" aria-label="${pc}% of last month's target">
+        <i class="${gap < 0 ? 'behind' : ''}" style="width:${Math.min(pc, 100)}%"></i>
+      </div>
+      <p class="note">${gap >= 0 ? `Target beaten by <strong>${mt(gap)} MT</strong>.` : `Short of target by <strong>${mt(-gap)} MT</strong>.`}</p>
     </section>`;
   }
 
@@ -137,16 +170,7 @@ window.PortPanel = (function () {
     const d = new Date(opDate + 'T00:00');
     const dim = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
     const share = (dim - m.days_left) / dim;
-    let foot = '';
-    if (m.avg_per_day != null) foot += `Averaging <strong>${mt(m.avg_per_day)} MT</strong> a day so far. `;
-    if (m.needed_per_day != null) {
-      foot += m.needed_per_day > 0
-        ? (m.days_left === 1
-          ? `Needs <strong>${mt(m.needed_per_day)} MT</strong> today to reach the target.`
-          : `Needs <strong>${mt(m.needed_per_day)} MT</strong> a day for the remaining ${m.days_left} days.`)
-        : 'Target met.';
-    }
-    return progressBlock('This month', t.month_label, m.total, m.target, share, foot);
+    return progressBlock('This month', t.month_label, m.total, m.target, share, paceRow(m));
   }
 
   function secFY(t) {
@@ -154,10 +178,7 @@ window.PortPanel = (function () {
     const start = Number(t.fy_label.split('-')[0]);
     const daysInFY = (new Date(start + 1, 2, 31) - new Date(start, 3, 1)) / 864e5 + 1;
     const share = (daysInFY - f.days_left) / daysInFY;
-    const foot = f.needed_per_day == null ? '' : f.needed_per_day > 0
-      ? `Needs <strong>${mt(f.needed_per_day)} MT</strong> a day for the remaining ${f.days_left} days.`
-      : 'Financial-year target met.';
-    return progressBlock('Financial year', `FY ${t.fy_label}`, f.total, f.target, share, foot)
+    return progressBlock('Financial year', `FY ${t.fy_label}`, f.total, f.target, share, paceRow(f))
       .replace('</section>', `<p class="note">All-time discharged at this port: <strong>${mt(t.cumulative)} MT</strong>.</p></section>`);
   }
 
@@ -373,23 +394,16 @@ window.PortPanel = (function () {
   el.panel.querySelector('.panel-scroll').addEventListener('scroll', hideTip, { passive: true });
 
   // ── liquid terminal (JNPA) sections ──────────────────
-  function needFoot(p) {
-    if (p.needed_per_day == null) return '';
-    if (p.needed_per_day <= 0) return 'Target met.';
-    return p.days_left === 1 ? `Needs <strong>${mt(p.needed_per_day)} MT</strong> today to reach the target.`
-      : `Needs <strong>${mt(p.needed_per_day)} MT</strong> a day for the remaining ${p.days_left} days.`;
-  }
-
   function secLiquid(t) {
     const today = `<section class="sec">
       <h3>Pumped today <small>op-day from 07:00</small></h3>
       <div><span class="fig fig-xl">${mt(t.today.total)}</span><span class="unit">MT</span></div>
       <p class="note">Yesterday: <strong>${mt(t.yesterday.total)} MT</strong>.</p>
     </section>`;
-    const fy = progressBlock('Financial year', t.fy.label, t.fy.total, t.fy.target, t.fy.share, needFoot(t.fy))
+    const fy = progressBlock('Financial year', t.fy.label, t.fy.total, t.fy.target, t.fy.share, paceRow(t.fy))
       .replace('</section>', `<p class="note">All-time handled at this terminal: <strong>${mt(t.cumulative)} MT</strong>.</p></section>`);
-    return today + progressBlock('This month', t.month.label, t.month.total, t.month.target, t.month.share, needFoot(t.month))
-      + fy + secMix(t);
+    return today + progressBlock('This month', t.month.label, t.month.total, t.month.target, t.month.share, paceRow(t.month))
+      + secPrevMonth(t.prev_month) + fy + secMix(t);
   }
 
   function secJetty(j, d, bob) {
@@ -565,7 +579,8 @@ window.PortPanel = (function () {
       if (d.pipelines) parts.push(secPipelines(d.pipelines));
     } else {                               // dry bulk: barges and MBCs
       if (d.throughput) {
-        parts.push(secToday(d.throughput, d.shift), secMonth(d.throughput, d.op_date), secFY(d.throughput), secMix(d.throughput));
+        parts.push(secToday(d.throughput, d.shift), secMonth(d.throughput, d.op_date), secPrevMonth(d.throughput.prev_month),
+          secFY(d.throughput), secMix(d.throughput));
       }
       if (d.at_port) parts.push(secAtPort(d.at_port, d));
       if (d.inbound) parts.push(secInbound(d.inbound));
