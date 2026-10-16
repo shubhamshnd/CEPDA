@@ -82,7 +82,8 @@ def prev_month(q, month_start):
         total = q.scalar("SELECT quantity FROM {s}.jnpa_month_totals WHERE mon_yy = %(m)s",
                          {"m": start.strftime("%b-%y")})
         basis = "report5"
-    except Exception:
+    except Exception as e:                           # say why, so a silent fallback can be traced
+        log.warning("jnpa_month_totals unreadable, last month is provisional: %s", str(e).strip().splitlines()[0])
         total = q.scalar("""
             SELECT SUM(quantity) FROM {s}.jnpa_parcel_log
             WHERE NOT excluded_from_throughput AND start_ts >= %(a)s AND start_ts < %(b)s
