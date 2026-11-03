@@ -151,8 +151,6 @@
   function homeView() {
     const pts = network.ports.map(p => [p.lng, p.lat]);
     const lng = d3.extent(pts, d => d[0]), lat = d3.extent(pts, d => d[1]);
-    // Small map: just the ports (all of India would leave them tiny).
-    if (cramped()) return fitTransform([[lng[0] - 0.5, lat[0] - 1], [lng[1] + 0.5, lat[1] + 1]], 16);
     return fitTransform([
       [Math.min(lng[0] - 2, INDIA_BOUNDS[0][0]), Math.min(lat[0] - 1.5, INDIA_BOUNDS[0][1])],
       [Math.max(lng[1] + 4, INDIA_BOUNDS[1][0]), Math.max(lat[1] + 5, INDIA_BOUNDS[1][1])],
