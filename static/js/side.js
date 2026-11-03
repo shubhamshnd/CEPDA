@@ -95,7 +95,7 @@ window.SidePanel = (function () {
   function applyTheme(light) {
     document.documentElement.dataset.theme = light ? 'light' : 'dark';
     swTheme.forEach(b => b.setAttribute('aria-checked', String(light)));
-    themeColor.content = light ? '#FFFFFF' : '#08122A';   // phone status bar
+    themeColor.content = light ? '#FFFFFF' : '#0D1A33';   // = the app bar   // phone status bar
     store.set('theme', light ? 'light' : 'dark');
   }
   // The new theme spreads out from the switch as a growing circle (View Transitions).

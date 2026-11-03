@@ -9,7 +9,12 @@
   const svg = d3.select('#map');
   // The base map gets its own svg under #map. The arcs and markers animate every
   // frame; sharing one svg made the browser repaint ~3 MB of coastline with them.
-  const gMap = d3.select('#stage').insert('svg', '#map').attr('id', 'basemap').attr('aria-hidden', 'true').append('g');
+  // It lives in its own fixed layer (#basebox), outside #stage: iOS Safari depth-tests
+  // the tilted map against its siblings, so inside #stage it drew over the bars,
+  // pages and labels. On a phone the svg is larger than the screen (app.css), because
+  // Safari clips a tilted svg to its box; gBase shifts the drawing back to screen px.
+  const gBase = d3.select('#basebox').append('svg').attr('id', 'basemap').append('g');
+  const gMap = gBase.append('g');
   const gOver = svg.append('g');       // screen-space layer: arcs, markers, labels
   const gSeas = gOver.append('g');
   const SEAS = [
@@ -47,9 +52,12 @@
   let baseT = d3.zoomIdentity, sliding = false;   // baseT: transform the base map was drawn at
   let slideM = new DOMMatrix(), camM = new DOMMatrix();
   const cam = { tilt: 0, rot: 0, ox: 0, oy: 0 };  // degrees, degrees, orbit centre in px
+  let baseOff = [0, 0];                 // the svg's top-left on screen (negative when oversized)
 
   function paintBase() {
-    const m = camM.multiply(slideM);
+    // camM and slideM are in screen px; the svg's transform origin is its own top-left.
+    const [x, y] = baseOff;
+    const m = new DOMMatrix().translate(-x, -y).multiply(camM.multiply(slideM)).translate(x, y);
     baseEl.style.transform = m.isIdentity ? '' : m.toString();
     baseEl.style.willChange = sliding || cam.tilt ? 'transform' : '';
   }
@@ -215,7 +223,7 @@
   // Slow orbit while zoomed to a port.
   let orbit = null;
   function startOrbit() {
-    if (orbit || reduceMotion || !autoRotate) return;
+    if (orbit || !autoRotate) return;   // reduced motion only sets the default (autoRotate)
     let last = 0;
     orbit = d3.timer(t => {
       cam.rot = (cam.rot + (t - last) * ORBIT_DEG_PER_S / 1000) % 360;
@@ -746,6 +754,10 @@
   function resize() {
     const r = svg.node().getBoundingClientRect();
     width = r.width; height = r.height;
+    baseEl.style.transform = '';
+    const b = baseEl.getBoundingClientRect();
+    baseOff = [b.left, b.top];
+    gBase.attr('transform', `translate(${-b.left},${-b.top})`);
     if (!india || !network) return;
     drawBase();
     zoom.extent([[0, 0], [width, height]]);
@@ -796,6 +808,7 @@
     if (!reduceMotion) requestAnimationFrame(animate);
     window.addEventListener('resize', resize);
     rotBtn.onclick = () => setAuto(!autoRotate);
+    setAuto(autoRotate);                // button label matches the start state (off under Reduce Motion)
     fleetKey.onclick = () => setFleetMode(!fleetMode);
     // Double-click anywhere on the map (not a port) or Esc zooms back out.
     svg.on('dblclick', e => { if (focused && !e.target.closest('.port-mark')) reset(1100); });

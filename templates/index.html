@@ -10,10 +10,10 @@ try { const t = localStorage.getItem('theme'); if (t) document.documentElement.d
 <!-- installable on phones: Add to Home Screen opens it full screen like an app -->
 <link rel="manifest" href="{{ url_for('manifest') }}">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
-<meta name="theme-color" content="#08122A">
+<meta name="theme-color" content="#0D1A33">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="JSW Ports">
 <link rel="preload" href="{{ url_for('static', filename='fonts/barlow-400.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
@@ -21,6 +21,7 @@ try { const t = localStorage.getItem('theme'); if (t) document.documentElement.d
 </head>
 <body>
 
+<div id="basebox" aria-hidden="true"></div>
 <main id="stage">
   <!-- phone only: app bar on top, tab bar at the bottom (mobile.js) -->
   <header id="appbar" class="appbar">
