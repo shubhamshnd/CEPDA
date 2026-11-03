@@ -28,6 +28,11 @@ window.SidePanel = (function () {
       <div class="kpis">${c.kpis.map(k => `<div class="kpi"><b>${esc(k.value)}<small>${esc(k.unit)}</small></b><span>${esc(k.label)}</span></div>`).join('')}</div>
 
       <h2 class="side-h">Locations <span>${network.ports.length}</span></h2>
+      <ul class="dot-key">
+        <li><span class="loc-dot data"></span>Live data</li>
+        <li><span class="loc-dot"></span>Data not connected yet</li>
+        <li><span class="loc-dot dev"></span>Under development</li>
+      </ul>
       <div class="groups">${ORDER.map(k => {
         const ps = byGroup[k];
         if (!ps.length) return '';
@@ -36,7 +41,7 @@ window.SidePanel = (function () {
             <span class="grp-name">${esc(label[k])}</span><span class="grp-n">${ps.length}</span>${chevron}
           </button>
           <div class="grp-body"><ul>${ps.map(p => `<li><button type="button" class="loc" data-code="${esc(p.code)}">
-            <span class="loc-dot${p.status !== 'Operational' ? ' dev' : ''}${p.pulse && p.pulse.ok ? ' live' : ''}"></span>
+            <span class="loc-dot${p.status !== 'Operational' ? ' dev' : ''}${p.connected ? ' data' : ''}${p.pulse && p.pulse.ok ? ' live' : ''}"></span>
             <span class="loc-name">${esc(p.name)}</span>
             <span class="loc-region">${esc(p.region)}</span></button></li>`).join('')}</ul></div>
         </section>`;

@@ -404,6 +404,7 @@
     pm.attr('transform', d => `translate(${d.x},${d.y})`)
       .classed('live', d => !!(d.p.pulse && d.p.pulse.ok))
       .classed('dev', d => isDev(d.p))
+      .classed('data', d => !!d.p.connected)
       .classed('active', d => d.p.code === current)
       .classed('dim', d => !!highlight && !highlight.has(d.p.code))
       .classed('hl', d => !!highlight && highlight.has(d.p.code))

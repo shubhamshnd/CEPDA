@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jsw-infra/cepda/port_feed/1.0",
+  "title": "JSW Infrastructure port data feed, v1.0",
+  "description": "One JSON document per port, describing its operations at one moment. Send a fresh document at least every 5 minutes. General rules: all times are ISO 8601 with the +05:30 offset (or the port's own UTC offset overseas), e.g. 2026-10-16T17:05:00+05:30. All quantities are plain numbers (not text), in metric tonnes (MT) unless the field name says TEU, boxes or moves. Use null for a value you do not have; never \"\", \"-\" or 0 in place of unknown. Send totals and quantities done, not balances; the dashboard works out balances and percentages. IDs (berth_id, vessel_id) must stay the same from one document to the next. The financial year runs April to March; months are calendar months on your operational days (see port.op_day_start).",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "port", "throughput", "berths", "waiting"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.0", "description": "Version of this format. Always \"1.0\" for now." },
+    "generated_at": { "$ref": "#/$defs/datetime", "description": "When the numbers in this document were computed at the port." },
+    "source_system": { "type": ["string", "null"], "description": "Name of the system the data comes from (e.g. PORTMAN, SAP, the terminal operating system). For our records only." },
+
+    "port": {
+      "type": "object",
+      "required": ["code", "name", "type", "op_day_start"],
+      "additionalProperties": false,
+      "properties": {
+        "code": { "type": "string", "description": "Port code agreed with the CEPDA team, e.g. JPL, SWPL, MCTL." },
+        "name": { "type": "string", "description": "Port or terminal name as it should appear on the dashboard." },
+        "type": { "enum": ["bulk", "container"], "description": "bulk: dry / break-bulk import-export. container: container terminal. Decides which optional fields below apply." },
+        "op_day_start": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$", "description": "Local time your operational day starts, e.g. \"06:00\". Today, yesterday and month figures must follow this day." },
+        "timezone": { "type": "string", "default": "Asia/Kolkata", "description": "IANA time zone of the port, e.g. Asia/Kolkata or Asia/Dubai." }
+      }
+    },
+
+    "throughput": {
+      "type": "object",
+      "description": "Cargo handled, per period. Bulk ports fill the MT fields; container ports fill the TEU fields and, if available, the MT fields too.",
+      "required": ["today", "yesterday", "month", "previous_month", "financial_year"],
+      "additionalProperties": false,
+      "properties": {
+        "today": { "$ref": "#/$defs/period", "description": "The current operational day so far." },
+        "yesterday": { "$ref": "#/$defs/period", "description": "The previous complete operational day." },
+        "month": { "$ref": "#/$defs/target_period", "description": "Current calendar month so far, with the month target." },
+        "previous_month": {
+          "allOf": [{ "$ref": "#/$defs/target_period" }],
+          "description": "Last calendar month, complete, with its target. Use your official month-end figure (e.g. the MIS / monthly performance report) once it is finalised, and say so in finalised.",
+          "properties": { "finalised": { "type": "boolean", "description": "true once this is the official month-end figure; false while it can still change." } },
+          "required": ["finalised"]
+        },
+        "financial_year": { "$ref": "#/$defs/target_period", "description": "Current financial year (April to date), with the full-year target." }
+      }
+    },
+
+    "berths": {
+      "type": "array",
+      "description": "Every berth, including free ones, in your usual order. berth_id must match the berth layout JSON made with the CEPDA berth layout editor.",
+      "items": {
+        "type": "object",
+        "required": ["berth_id", "berth_name", "status", "vessels"],
+        "additionalProperties": false,
+        "properties": {
+          "berth_id": { "type": "string", "description": "Stable berth code, e.g. \"B1\"." },
+          "berth_name": { "type": "string", "description": "Name as shown at the port, e.g. \"Berth 1\"." },
+          "status": { "enum": ["OCCUPIED", "FREE", "UNAVAILABLE"], "description": "UNAVAILABLE for maintenance, dredging or similar." },
+          "vessels": { "type": "array", "items": { "$ref": "#/$defs/vessel_on_berth" }, "description": "Vessels alongside this berth now; empty when free. More than one only when vessels are double-banked." }
+        }
+      }
+    },
+
+    "waiting": {
+      "type": "array",
+      "description": "Vessels not yet alongside: at anchorage, or expected (call registered, not yet arrived).",
+      "items": {
+        "type": "object",
+        "required": ["vessel_id", "name", "state"],
+        "additionalProperties": false,
+        "properties": {
+          "vessel_id": { "type": "string", "description": "Your call / VCN number. Must stay the same when the vessel later berths." },
+          "name": { "type": "string" },
+          "imo": { "type": ["string", "null"], "pattern": "^[0-9]{7}$" },
+          "vessel_type": { "$ref": "#/$defs/vessel_type" },
+          "operation": { "$ref": "#/$defs/operation" },
+          "cargo": { "type": ["string", "null"], "description": "Cargo name as you record it." },
+          "cargo_group": { "$ref": "#/$defs/cargo_group" },
+          "quantity_mt": { "type": ["number", "null"], "minimum": 0, "description": "Declared quantity (bulk)." },
+          "teu": { "type": ["number", "null"], "minimum": 0, "description": "Declared TEU to handle (container)." },
+          "state": { "enum": ["AT_ANCHORAGE", "EXPECTED"] },
+          "eta": { "$ref": "#/$defs/datetime_or_null" },
+          "anchored_at": { "$ref": "#/$defs/datetime_or_null" },
+          "planned_berth_id": { "type": ["string", "null"] },
+          "agent": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "delays": {
+      "type": "array",
+      "description": "Delays logged in the current operational day, one row per delay reason (per berth / vessel if you track it that way). Optional.",
+      "items": {
+        "type": "object",
+        "required": ["reason", "minutes"],
+        "additionalProperties": false,
+        "properties": {
+          "reason": { "type": "string", "description": "e.g. Rain, Equipment breakdown, Awaiting cargo." },
+          "minutes": { "type": "integer", "minimum": 0 },
+          "berth_id": { "type": ["string", "null"] },
+          "vessel_name": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "yard": {
+      "type": ["object", "null"],
+      "description": "Container ports only, optional: yard occupancy now.",
+      "additionalProperties": false,
+      "properties": {
+        "capacity_teu": { "type": ["number", "null"], "minimum": 0 },
+        "occupied_teu": { "type": ["number", "null"], "minimum": 0 },
+        "reefer_plugs": { "type": ["integer", "null"], "minimum": 0 },
+        "reefer_plugs_in_use": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    }
+  },
+
+  "$defs": {
+    "datetime": { "type": "string", "format": "date-time", "pattern": "[+-][0-9]{2}:[0-9]{2}$|Z$" },
+    "datetime_or_null": { "anyOf": [{ "$ref": "#/$defs/datetime" }, { "type": "null" }] },
+
+    "vessel_type": { "enum": ["BULK_CARRIER", "CONTAINER", "GENERAL_CARGO", "TANKER", "BARGE", "MBC", "OTHER", null] },
+    "operation": { "enum": ["IMPORT", "EXPORT", "IMPORT_EXPORT", null], "description": "IMPORT = discharging, EXPORT = loading." },
+    "cargo_group": {
+      "enum": ["COAL", "IRON_ORE", "LIMESTONE_DOLOMITE", "FERTILISER", "STEEL", "CEMENT_CLINKER", "OTHER_BULK", "CONTAINER", "LIQUID", "OTHER", null],
+      "description": "The cargo class used across all ports so the dashboard can compare them. Map your own cargo names onto these; keep your own name in cargo."
+    },
+
+    "period": {
+      "type": "object",
+      "required": ["total_mt"],
+      "properties": {
+        "total_mt": { "type": ["number", "null"], "minimum": 0, "description": "Tonnes handled in the period, import + export. Container ports: null if not tracked." },
+        "import_mt": { "type": ["number", "null"], "minimum": 0 },
+        "export_mt": { "type": ["number", "null"], "minimum": 0 },
+        "by_cargo": {
+          "type": "array",
+          "description": "Tonnes by cargo class; should add up to total_mt.",
+          "items": {
+            "type": "object", "required": ["cargo_group", "quantity_mt"], "additionalProperties": false,
+            "properties": { "cargo_group": { "$ref": "#/$defs/cargo_group" }, "quantity_mt": { "type": "number", "minimum": 0 } }
+          }
+        },
+        "teu": { "type": ["number", "null"], "minimum": 0, "description": "Container ports: TEU handled in the period (all moves below added up)." },
+        "teu_split": {
+          "type": ["object", "null"],
+          "description": "Container ports: TEU by direction and laden/empty.",
+          "additionalProperties": false,
+          "properties": {
+            "import_laden": { "type": "number", "minimum": 0 }, "import_empty": { "type": "number", "minimum": 0 },
+            "export_laden": { "type": "number", "minimum": 0 }, "export_empty": { "type": "number", "minimum": 0 },
+            "transhipment": { "type": "number", "minimum": 0 }
+          }
+        },
+        "boxes": { "type": ["integer", "null"], "minimum": 0, "description": "Container ports: number of containers (boxes) handled." },
+        "vessels_sailed": { "type": ["integer", "null"], "minimum": 0, "description": "Vessels that completed and sailed in the period." }
+      }
+    },
+
+    "target_period": {
+      "allOf": [{ "$ref": "#/$defs/period" }],
+      "properties": {
+        "label": { "type": "string", "description": "e.g. \"October 2026\", \"September 2026\", \"FY 2026-27\"." },
+        "target_mt": { "type": ["number", "null"], "minimum": 0, "description": "Target for the whole period in MT (budget, or revised outlook if one is set). null if none." },
+        "target_teu": { "type": ["number", "null"], "minimum": 0, "description": "Container ports: target for the whole period in TEU." }
+      },
+      "required": ["label", "target_mt"]
+    },
+
+    "vessel_on_berth": {
+      "type": "object",
+      "required": ["vessel_id", "name", "vessel_type", "operation", "status", "alongside_at"],
+      "additionalProperties": false,
+      "properties": {
+        "vessel_id": { "type": "string", "description": "Your call / VCN number. Stable while the vessel is at the port." },
+        "name": { "type": "string" },
+        "imo": { "type": ["string", "null"], "pattern": "^[0-9]{7}$" },
+        "vessel_type": { "$ref": "#/$defs/vessel_type" },
+        "operation": { "$ref": "#/$defs/operation" },
+        "status": { "enum": ["WAITING", "WORKING", "COMPLETED"], "description": "WAITING: alongside, cargo work not started. WORKING: loading/discharging. COMPLETED: cargo work done, not yet sailed." },
+        "status_text": { "type": ["string", "null"], "description": "Your own status wording, shown as-is (e.g. \"Under discharge\", \"Awaiting documents\")." },
+        "cargo": { "type": ["string", "null"] },
+        "cargo_group": { "$ref": "#/$defs/cargo_group" },
+        "bank_position": { "enum": ["A/S", "D/B", "T/B", null], "description": "Alongside, double-banked or triple-banked. null for a single vessel." },
+        "loa_m": { "type": ["number", "null"], "minimum": 0 },
+        "draft_m": { "type": ["number", "null"], "minimum": 0 },
+        "agent": { "type": ["string", "null"] },
+        "alongside_at": { "$ref": "#/$defs/datetime" },
+        "ops_started_at": { "$ref": "#/$defs/datetime_or_null" },
+        "expected_completion_at": { "$ref": "#/$defs/datetime_or_null", "description": "Your estimate of when cargo work will finish." },
+        "quantity_total_mt": { "type": ["number", "null"], "minimum": 0, "description": "Bulk: total to load/discharge for this call." },
+        "quantity_done_mt": { "type": ["number", "null"], "minimum": 0, "description": "Bulk: handled so far for this call." },
+        "rate_mt_per_hr": { "type": ["number", "null"], "minimum": 0, "description": "Bulk: current handling rate." },
+        "teu_total": { "type": ["number", "null"], "minimum": 0, "description": "Container: TEU to handle this call (discharge + load)." },
+        "teu_done": { "type": ["number", "null"], "minimum": 0 },
+        "moves_total": { "type": ["integer", "null"], "minimum": 0, "description": "Container: crane moves planned (incl. restows)." },
+        "moves_done": { "type": ["integer", "null"], "minimum": 0 },
+        "moves_per_hr": { "type": ["number", "null"], "minimum": 0, "description": "Container: gross berth productivity, moves per hour." },
+        "cranes_working": { "type": ["integer", "null"], "minimum": 0 },
+        "remarks": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

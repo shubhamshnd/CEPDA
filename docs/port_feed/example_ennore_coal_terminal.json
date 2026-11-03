@@ -1,0 +1,140 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-10-16T17:05:00+05:30",
+  "source_system": "Portbird3",
+  "port": {
+    "code": "ECT",
+    "name": "Ennore Coal Terminal",
+    "type": "bulk",
+    "op_day_start": "06:00",
+    "timezone": "Asia/Kolkata"
+  },
+  "throughput": {
+    "today": {
+      "total_mt": 21600,
+      "import_mt": 21600,
+      "export_mt": 0,
+      "by_cargo": [
+        { "cargo_group": "COAL", "quantity_mt": 21600 }
+      ],
+      "vessels_sailed": 0
+    },
+    "yesterday": {
+      "total_mt": 38400,
+      "import_mt": 38400,
+      "export_mt": 0,
+      "by_cargo": [
+        { "cargo_group": "COAL", "quantity_mt": 34100 },
+        { "cargo_group": "LIMESTONE_DOLOMITE", "quantity_mt": 4300 }
+      ],
+      "vessels_sailed": 1
+    },
+    "month": {
+      "label": "October 2026",
+      "total_mt": 512000,
+      "import_mt": 512000,
+      "export_mt": 0,
+      "target_mt": 950000,
+      "by_cargo": [
+        { "cargo_group": "COAL", "quantity_mt": 431000 },
+        { "cargo_group": "OTHER_BULK", "quantity_mt": 46000 },
+        { "cargo_group": "LIMESTONE_DOLOMITE", "quantity_mt": 35000 }
+      ],
+      "vessels_sailed": 5
+    },
+    "previous_month": {
+      "label": "September 2026",
+      "total_mt": 918000,
+      "import_mt": 918000,
+      "export_mt": 0,
+      "target_mt": 900000,
+      "finalised": true,
+      "by_cargo": [
+        { "cargo_group": "COAL", "quantity_mt": 802000 },
+        { "cargo_group": "OTHER_BULK", "quantity_mt": 71000 },
+        { "cargo_group": "LIMESTONE_DOLOMITE", "quantity_mt": 45000 }
+      ],
+      "vessels_sailed": 9
+    },
+    "financial_year": {
+      "label": "FY 2026-27",
+      "total_mt": 5640000,
+      "import_mt": 5640000,
+      "export_mt": 0,
+      "target_mt": 11000000,
+      "by_cargo": [
+        { "cargo_group": "COAL", "quantity_mt": 4930000 },
+        { "cargo_group": "OTHER_BULK", "quantity_mt": 420000 },
+        { "cargo_group": "LIMESTONE_DOLOMITE", "quantity_mt": 290000 }
+      ],
+      "vessels_sailed": 56
+    }
+  },
+  "berths": [
+    {
+      "berth_id": "ECT-B1",
+      "berth_name": "Coal Berth",
+      "status": "OCCUPIED",
+      "vessels": [
+        {
+          "vessel_id": "ECT/VCN/2026/0198",
+          "name": "MV CAPE HARMONY",
+          "imo": "9712234",
+          "vessel_type": "BULK_CARRIER",
+          "operation": "IMPORT",
+          "status": "WORKING",
+          "status_text": "Under discharge, both unloaders",
+          "cargo": "Indonesian steam coal",
+          "cargo_group": "COAL",
+          "bank_position": null,
+          "loa_m": 289,
+          "draft_m": 17.2,
+          "agent": "Wilhelmsen Ships Service",
+          "alongside_at": "2026-10-15T14:20:00+05:30",
+          "ops_started_at": "2026-10-15T16:00:00+05:30",
+          "expected_completion_at": "2026-10-18T09:00:00+05:30",
+          "quantity_total_mt": 165000,
+          "quantity_done_mt": 61800,
+          "rate_mt_per_hr": 1850,
+          "remarks": null
+        }
+      ]
+    }
+  ],
+  "waiting": [
+    {
+      "vessel_id": "ECT/VCN/2026/0201",
+      "name": "MV PACIFIC VENTURE",
+      "imo": "9688041",
+      "vessel_type": "BULK_CARRIER",
+      "operation": "IMPORT",
+      "cargo": "Australian coking coal",
+      "cargo_group": "COAL",
+      "quantity_mt": 148000,
+      "state": "AT_ANCHORAGE",
+      "eta": null,
+      "anchored_at": "2026-10-16T02:10:00+05:30",
+      "planned_berth_id": "ECT-B1",
+      "agent": "JM Baxi"
+    },
+    {
+      "vessel_id": "ECT/VCN/2026/0204",
+      "name": "MV GOLDEN ARROW",
+      "imo": null,
+      "vessel_type": "BULK_CARRIER",
+      "operation": "IMPORT",
+      "cargo": "Pet coke",
+      "cargo_group": "OTHER_BULK",
+      "quantity_mt": 72000,
+      "state": "EXPECTED",
+      "eta": "2026-10-19T08:00:00+05:30",
+      "anchored_at": null,
+      "planned_berth_id": "ECT-B1",
+      "agent": null
+    }
+  ],
+  "delays": [
+    { "reason": "Unloader 2 breakdown", "minutes": 95, "berth_id": "ECT-B1", "vessel_name": "MV CAPE HARMONY" },
+    { "reason": "Stackyard full, awaiting rakes", "minutes": 40, "berth_id": "ECT-B1", "vessel_name": "MV CAPE HARMONY" }
+  ]
+}

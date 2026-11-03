@@ -1,0 +1,115 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-10-16T17:05:00+05:30",
+  "source_system": "Terminal operating system",
+  "port": {
+    "code": "MCTL",
+    "name": "Mangalore Container Terminal",
+    "type": "container",
+    "op_day_start": "07:00",
+    "timezone": "Asia/Kolkata"
+  },
+  "throughput": {
+    "today": {
+      "total_mt": null,
+      "teu": 412,
+      "teu_split": { "import_laden": 160, "import_empty": 24, "export_laden": 188, "export_empty": 40, "transhipment": 0 },
+      "boxes": 265,
+      "vessels_sailed": 0
+    },
+    "yesterday": {
+      "total_mt": null,
+      "teu": 690,
+      "teu_split": { "import_laden": 270, "import_empty": 36, "export_laden": 320, "export_empty": 64, "transhipment": 0 },
+      "boxes": 441,
+      "vessels_sailed": 1
+    },
+    "month": {
+      "label": "October 2026",
+      "total_mt": null,
+      "teu": 9850,
+      "target_mt": null,
+      "target_teu": 19000,
+      "boxes": 6320,
+      "vessels_sailed": 6
+    },
+    "previous_month": {
+      "label": "September 2026",
+      "total_mt": null,
+      "teu": 18400,
+      "target_mt": null,
+      "target_teu": 18000,
+      "finalised": true,
+      "boxes": 11870,
+      "vessels_sailed": 12
+    },
+    "financial_year": {
+      "label": "FY 2026-27",
+      "total_mt": null,
+      "teu": 112300,
+      "target_mt": null,
+      "target_teu": 230000,
+      "vessels_sailed": 74
+    }
+  },
+  "berths": [
+    {
+      "berth_id": "B14",
+      "berth_name": "Berth 14",
+      "status": "OCCUPIED",
+      "vessels": [
+        {
+          "vessel_id": "MCTL/2026/0233",
+          "name": "MV SSL MANGALORE",
+          "imo": "9447885",
+          "vessel_type": "CONTAINER",
+          "operation": "IMPORT_EXPORT",
+          "status": "WORKING",
+          "status_text": "Discharge and load in progress",
+          "cargo": "Containers",
+          "cargo_group": "CONTAINER",
+          "bank_position": null,
+          "loa_m": 172,
+          "draft_m": 9.6,
+          "agent": "Shreyas Shipping",
+          "alongside_at": "2026-10-16T08:15:00+05:30",
+          "ops_started_at": "2026-10-16T09:00:00+05:30",
+          "expected_completion_at": "2026-10-17T03:30:00+05:30",
+          "teu_total": 1180,
+          "teu_done": 640,
+          "moves_total": 760,
+          "moves_done": 412,
+          "moves_per_hr": 31,
+          "cranes_working": 2,
+          "remarks": null
+        }
+      ]
+    }
+  ],
+  "waiting": [
+    {
+      "vessel_id": "MCTL/2026/0236",
+      "name": "MV KOTA HALUS",
+      "imo": "9301458",
+      "vessel_type": "CONTAINER",
+      "operation": "IMPORT_EXPORT",
+      "cargo": "Containers",
+      "cargo_group": "CONTAINER",
+      "teu": 950,
+      "state": "EXPECTED",
+      "eta": "2026-10-17T10:00:00+05:30",
+      "anchored_at": null,
+      "planned_berth_id": "B14",
+      "agent": null
+    }
+  ],
+  "delays": [
+    { "reason": "Crane breakdown", "minutes": 50, "berth_id": "B14", "vessel_name": "MV SSL MANGALORE" }
+  ],
+  "yard": {
+    "capacity_teu": 6000,
+    "occupied_teu": 3920,
+    "reefer_plugs": 240,
+    "reefer_plugs_in_use": 151
+  }
+}

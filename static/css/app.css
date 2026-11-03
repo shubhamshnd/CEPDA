@@ -24,6 +24,7 @@
   --text-3:     #7186A6;
 
   --good:       #5CCB9C;
+  --nodata:     #F3E3A0;
   --short:      #EF8A63;
   --wait:       #9FB2C2;
 
@@ -71,6 +72,7 @@
   --text-3:     #6B7C94;
 
   --good:       #1E9A63;
+  --nodata:     #EBCB5A;
   --short:      #D2583A;
   --wait:       #8696AD;
 
@@ -206,8 +208,10 @@ body.panel-open .rot-ctl { left: 24px; }
 .ho-mark .sub  { fill: var(--text-2); font-size: 12px; }
 
 .port-mark { cursor: pointer; outline: none; }
-.port-mark .core { fill: var(--port); stroke: var(--sea); stroke-width: 2; }
-.port-mark .ring { display: none; fill: none; stroke: var(--port); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: ring 2.6s ease-out infinite; }
+/* Fill says whether the location feeds data: green live, light yellow not connected yet. */
+.port-mark .core { fill: var(--nodata); stroke: var(--sea); stroke-width: 2; }
+.port-mark.data .core { fill: var(--good); }
+.port-mark .ring { display: none; fill: none; stroke: var(--good); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: ring 2.6s ease-out infinite; }
 .port-mark.live .ring { display: block; }
 .port-mark .hit { fill: transparent; }
 .port-mark { transition: opacity .3s ease; }
@@ -274,9 +278,12 @@ body.panel-open .side { transform: translateX(calc(-100% - 24px)); opacity: 0; p
   padding: 7px 8px; background: none; border: 0; border-radius: 8px; cursor: pointer; text-align: left; color: var(--text);
 }
 .loc:hover, .loc:focus-visible { background: var(--surface-2); }
-.loc-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--port); }
+.loc-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--nodata); flex: none; }
+.loc-dot.data { background: var(--good); }
 .loc-dot.dev { background: none; border: 1.5px dashed var(--text-3); }
-.loc-dot.live { box-shadow: 0 0 0 3px rgba(54, 195, 255, .25); }
+.loc-dot.live { box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 30%, transparent); }
+.dot-key { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; margin: -4px 0 10px; font-size: 11.5px; color: var(--text-3); }
+.dot-key li { display: flex; align-items: center; gap: 6px; }
 .loc-name { font-size: 14px; font-weight: 500; }
 .loc-region { grid-column: 2 / -1; font-size: 12px; color: var(--text-3); }
 .side-src { font-size: 11.5px; color: var(--text-3); margin-top: 18px; line-height: 1.5; }

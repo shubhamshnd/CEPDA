@@ -1,0 +1,138 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-10-16T17:05:00+05:30",
+  "source_system": "PORTMAN",
+  "port": {
+    "code": "SWPL",
+    "name": "South West Port",
+    "type": "bulk",
+    "op_day_start": "06:00",
+    "timezone": "Asia/Kolkata"
+  },
+  "throughput": {
+    "today": {
+      "total_mt": 18450,
+      "import_mt": 18450,
+      "export_mt": 0,
+      "by_cargo": [
+        { "cargo_group": "COAL", "quantity_mt": 15200 },
+        { "cargo_group": "LIMESTONE_DOLOMITE", "quantity_mt": 3250 }
+      ],
+      "vessels_sailed": 0
+    },
+    "yesterday": {
+      "total_mt": 26100,
+      "import_mt": 22400,
+      "export_mt": 3700,
+      "by_cargo": [
+        { "cargo_group": "COAL", "quantity_mt": 19800 },
+        { "cargo_group": "LIMESTONE_DOLOMITE", "quantity_mt": 2600 },
+        { "cargo_group": "STEEL", "quantity_mt": 3700 }
+      ],
+      "vessels_sailed": 1
+    },
+    "month": {
+      "label": "October 2026",
+      "total_mt": 352000,
+      "import_mt": 318000,
+      "export_mt": 34000,
+      "target_mt": 700000,
+      "by_cargo": [
+        { "cargo_group": "COAL", "quantity_mt": 268000 },
+        { "cargo_group": "LIMESTONE_DOLOMITE", "quantity_mt": 50000 },
+        { "cargo_group": "STEEL", "quantity_mt": 34000 }
+      ],
+      "vessels_sailed": 7
+    },
+    "previous_month": {
+      "label": "September 2026",
+      "total_mt": 664500,
+      "import_mt": 601000,
+      "export_mt": 63500,
+      "target_mt": 680000,
+      "finalised": true,
+      "vessels_sailed": 13
+    },
+    "financial_year": {
+      "label": "FY 2026-27",
+      "total_mt": 4120000,
+      "import_mt": 3700000,
+      "export_mt": 420000,
+      "target_mt": 8500000,
+      "vessels_sailed": 81
+    }
+  },
+  "berths": [
+    {
+      "berth_id": "B4A",
+      "berth_name": "Berth 4A",
+      "status": "OCCUPIED",
+      "vessels": [
+        {
+          "vessel_id": "SWPL/VCN/2026/0412",
+          "name": "MV OCEAN PRIDE",
+          "imo": "9634521",
+          "vessel_type": "BULK_CARRIER",
+          "operation": "IMPORT",
+          "status": "WORKING",
+          "status_text": "Under discharge",
+          "cargo": "Australian coking coal",
+          "cargo_group": "COAL",
+          "bank_position": null,
+          "loa_m": 229,
+          "draft_m": 13.8,
+          "agent": "ISS Shipping",
+          "alongside_at": "2026-10-15T09:40:00+05:30",
+          "ops_started_at": "2026-10-15T11:05:00+05:30",
+          "expected_completion_at": "2026-10-17T20:00:00+05:30",
+          "quantity_total_mt": 74000,
+          "quantity_done_mt": 41200,
+          "rate_mt_per_hr": 980,
+          "remarks": null
+        }
+      ]
+    },
+    {
+      "berth_id": "B5A",
+      "berth_name": "Berth 5A",
+      "status": "FREE",
+      "vessels": []
+    }
+  ],
+  "waiting": [
+    {
+      "vessel_id": "SWPL/VCN/2026/0415",
+      "name": "MV STAR ATLAS",
+      "imo": "9581207",
+      "vessel_type": "BULK_CARRIER",
+      "operation": "IMPORT",
+      "cargo": "Limestone",
+      "cargo_group": "LIMESTONE_DOLOMITE",
+      "quantity_mt": 52000,
+      "state": "AT_ANCHORAGE",
+      "eta": null,
+      "anchored_at": "2026-10-16T04:30:00+05:30",
+      "planned_berth_id": "B5A",
+      "agent": "JM Baxi"
+    },
+    {
+      "vessel_id": "SWPL/VCN/2026/0418",
+      "name": "MV EASTERN GRACE",
+      "imo": null,
+      "vessel_type": "GENERAL_CARGO",
+      "operation": "EXPORT",
+      "cargo": "HR coils",
+      "cargo_group": "STEEL",
+      "quantity_mt": 18000,
+      "state": "EXPECTED",
+      "eta": "2026-10-18T06:00:00+05:30",
+      "anchored_at": null,
+      "planned_berth_id": null,
+      "agent": null
+    }
+  ],
+  "delays": [
+    { "reason": "Rain", "minutes": 45, "berth_id": "B4A", "vessel_name": "MV OCEAN PRIDE" },
+    { "reason": "Conveyor breakdown", "minutes": 30, "berth_id": "B4A", "vessel_name": "MV OCEAN PRIDE" }
+  ]
+}
