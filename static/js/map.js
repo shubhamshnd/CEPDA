@@ -106,15 +106,14 @@
     return [p.x / w, p.y / w];
   };
 
-  // App layout: phones, either way up. Same query as app.css and mobile.js.
-  const appMq = window.matchMedia('(max-width: 760px), (max-width: 1100px) and (orientation: portrait) and (pointer: coarse)');
+  // App layout: touch screens held upright, narrow mouse windows. Same query as app.css and mobile.js.
+  const appMq = window.matchMedia('(max-width: 760px) and (pointer: fine), (max-width: 1100px) and (orientation: portrait) and (pointer: coarse)');
   const phone = () => appMq.matches;
-  const sideways = () => phone() && window.innerWidth > window.innerHeight;   // card bottom right, map beside it
+  const cramped = () => phone() || height < 500;   // small map (phone, or one on its side): fewer, bigger things
 
   function panelWidth() {
-    if (!document.body.classList.contains('panel-open')) return 0;
-    if (sideways()) return Math.min(400, width * 0.46) + 12;               // app.css landscape .panel
-    return phone() ? 0 : document.getElementById('panel').offsetWidth;
+    return document.body.classList.contains('panel-open') && !phone()
+      ? document.getElementById('panel').offsetWidth : 0;
   }
 
   // Room the sidebar takes on the left. It slides away while the port panel is open.
@@ -128,7 +127,7 @@
   const PEEK_PX = 132;                  // port card (app.css .panel.open) plus its gap
   function vInsets() {
     if (!phone()) return [0, 0];
-    const peek = document.body.classList.contains('panel-open') && !sideways() ? PEEK_PX : 0;
+    const peek = document.body.classList.contains('panel-open') ? PEEK_PX : 0;
     return [document.getElementById('appbar').offsetHeight, document.getElementById('tabbar').offsetHeight + peek];
   }
 
@@ -139,7 +138,7 @@
     const y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]);
     const left = sideInset(), w = width - panelWidth() - left;
     const [top, bottom] = vInsets(), h = height - top - bottom;
-    if (phone()) pad = Math.min(pad, 16);
+    if (cramped()) pad = Math.min(pad, 16);
     const k = Math.min((w - pad * 2) / (x1 - x0), (h - pad * 2) / (y1 - y0));
     return d3.zoomIdentity
       .translate(left + w / 2, top + h / 2)
@@ -152,8 +151,8 @@
   function homeView() {
     const pts = network.ports.map(p => [p.lng, p.lat]);
     const lng = d3.extent(pts, d => d[0]), lat = d3.extent(pts, d => d[1]);
-    // Phone: a narrow screen, so just the ports (all of India would leave them tiny).
-    if (phone()) return fitTransform([[lng[0] - 0.5, lat[0] - 1], [lng[1] + 0.5, lat[1] + 1]], 16);
+    // Small map: just the ports (all of India would leave them tiny).
+    if (cramped()) return fitTransform([[lng[0] - 0.5, lat[0] - 1], [lng[1] + 0.5, lat[1] + 1]], 16);
     return fitTransform([
       [Math.min(lng[0] - 2, INDIA_BOUNDS[0][0]), Math.min(lat[0] - 1.5, INDIA_BOUNDS[0][1])],
       [Math.max(lng[1] + 4, INDIA_BOUNDS[1][0]), Math.max(lat[1] + 5, INDIA_BOUNDS[1][1])],
@@ -300,7 +299,7 @@
       groups = [];
       network.ports.forEach(p => {
         const [x, y] = screen(p.lng, p.lat);
-        const g = groups.find(g => Math.hypot(g.x - x, g.y - y) < (phone() && !focused ? STACK_PX_PHONE : STACK_PX));
+        const g = groups.find(g => Math.hypot(g.x - x, g.y - y) < (cramped() && !focused ? STACK_PX_PHONE : STACK_PX));
         if (g) g.ports.push(p); else groups.push({ x, y, ports: [p] });
       });
       stacks = groups.map(g => g.ports);
@@ -644,7 +643,7 @@
       const prev = lastSpot.get(d.p.code);
       if (prev && (hasSub || !prev[1])) tries.unshift(prev);   // sticky: keep last time's spot if still free
       let pick = tries.find(([i, s]) => free(box(i, s)));
-      if (!pick && phone()) {           // phone: no free spot, so no name, rather than one on top of another
+      if (!pick && cramped()) {         // small map: no free spot, so no name, rather than one on top of another
         lastSpot.delete(d.p.code);
         name.attr('visibility', 'hidden'); sub.attr('visibility', 'hidden'); leader.attr('visibility', 'hidden');
         return;

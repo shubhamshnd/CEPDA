@@ -34,9 +34,6 @@
   --panel-w:    50vw;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
-  --safe-l: env(safe-area-inset-left, 0px);    /* phone on its side: the notch */
-  --safe-r: env(safe-area-inset-right, 0px);
-
   /* see-through panels over the map, and small map details */
   --glass:      rgba(13, 26, 51, .85);
   --glass-2:    rgba(13, 26, 51, .97);
@@ -611,15 +608,16 @@ body.panel-open .support { right: calc(var(--panel-w) + 24px); }
       a port opens as a card over the map, then as its own page (mobile.js). ── */
 .appbar, .tabbar, .m-page, .panel-back, .peek-more { display: none; }
 
-/* Tablets get the desktop layout; the port panel gets room for its figures. */
-@media (min-width: 761px) and (max-width: 1180px) {
+/* Tablets, and phones on their side, get the desktop layout; the port panel gets room for its figures. */
+@media (max-width: 1180px) {
   :root { --panel-w: max(50vw, 460px); }
   .duo { grid-template-columns: 1fr; }
 }
 @media (pointer: coarse) { .zoom-hint { display: none; } }   /* no double-click or Esc on a touchscreen */
 
-/* Same query in map.js and mobile.js: narrow screens, and phones on their side. */
-@media (max-width: 760px), (max-width: 1100px) and (orientation: portrait) and (pointer: coarse) {
+/* Same query in map.js and mobile.js: touch screens held upright (phones, tablets),
+   and narrow windows with a mouse. A phone on its side gets the desktop layout. */
+@media (max-width: 760px) and (pointer: fine), (max-width: 1100px) and (orientation: portrait) and (pointer: coarse) {
   :root { --panel-w: 100%; --bar-h: 54px; --tab-h: 60px; --ease: cubic-bezier(.2, .7, .2, 1); }
   body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
   /* Safari clips a tilted svg to its box: give the turning map room past every screen edge. */
@@ -740,29 +738,6 @@ body.panel-open .support { right: calc(var(--panel-w) + 24px); }
   .duo { grid-template-columns: 1fr; }
   .fig-xl { font-size: 44px; }
   .boat-tip { max-width: calc(100vw - 16px); }
-
-  /* Phone on its side: slim bars clear of the notch, the port card bottom right with
-     the map beside it (map.js panelWidth), a shorter port page. */
-  @media (orientation: landscape) {
-    :root { --bar-h: 44px; --tab-h: 48px; }
-    .appbar { padding: var(--safe-t) calc(16px + var(--safe-r)) 0 calc(16px + var(--safe-l)); }
-    .app-logo { height: 24px; }
-    .clock, body.panel-open .clock { top: calc(var(--safe-t) + 4px); right: calc(16px + var(--safe-r)); }
-    #clock-time { font-size: 18px; }
-    #clock-meta { margin-top: 1px; }
-    .tabbar { padding: 0 var(--safe-r) var(--safe-b) var(--safe-l); }
-    .tabbar button { flex-direction: row; gap: 8px; font-size: 13px; }
-    .tabbar button[aria-current] svg { transform: none; }
-    .side-body, .m-page { padding-left: calc(16px + var(--safe-l)); padding-right: calc(16px + var(--safe-r)); }
-    .panel { left: auto; right: calc(12px + var(--safe-r)); width: min(400px, 46vw); }
-    .rot-ctl, body.panel-open .rot-ctl { left: calc(12px + var(--safe-l)); bottom: calc(var(--tab-h) + var(--safe-b) + 12px); }
-    .fleet-key, body.panel-open .fleet-key { top: calc(var(--bar-h) + var(--safe-t) + 12px); bottom: auto; right: calc(12px + var(--safe-r)); }
-    body.m-port .panel { left: 0; right: 0; width: auto; }
-    body.m-port .panel-hero { height: calc(140px + var(--safe-t)); }
-    body.m-port .panel-hero-text, .panel-meta, .panel-body { padding-left: calc(20px + var(--safe-l)); padding-right: calc(20px + var(--safe-r)); }
-    .panel-back { left: calc(12px + var(--safe-l)); }
-    .duo { grid-template-columns: 1fr 1fr; }
-  }
 
   /* Tablet upright: the port card stays card-sized, centred above the tab bar. */
   @media (min-width: 761px) and (orientation: portrait) {
