@@ -83,16 +83,19 @@ window.SidePanel = (function () {
     get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private window: just not remembered */ } },
   };
-  const swLines = document.getElementById('sw-lines'), swTheme = document.getElementById('sw-theme');
+  // Each switch is in the sidebar and again on the phone's Settings page; both stay in step.
+  const swLines = document.querySelectorAll('[data-sw="lines"]'), swTheme = document.querySelectorAll('[data-sw="theme"]');
+  const themeColor = document.querySelector('meta[name="theme-color"]');
   function setLines(on) {
-    swLines.setAttribute('aria-checked', String(on));
+    swLines.forEach(b => b.setAttribute('aria-checked', String(on)));
     document.body.classList.toggle('no-lines', !on);
     store.set('lines', on ? '1' : '0');
     if (window.PortMap) window.PortMap.redraw();
   }
   function applyTheme(light) {
     document.documentElement.dataset.theme = light ? 'light' : 'dark';
-    swTheme.setAttribute('aria-checked', String(light));
+    swTheme.forEach(b => b.setAttribute('aria-checked', String(light)));
+    themeColor.content = light ? '#FFFFFF' : '#08122A';   // phone status bar
     store.set('theme', light ? 'light' : 'dark');
   }
   // The new theme spreads out from the switch as a growing circle (View Transitions).
@@ -108,8 +111,8 @@ window.SidePanel = (function () {
         { duration: 650, easing: 'cubic-bezier(.2, .7, .2, 1)', pseudoElement: '::view-transition-new(root)' });
     }).catch(() => {});
   }
-  swLines.addEventListener('click', () => setLines(swLines.getAttribute('aria-checked') !== 'true'));
-  swTheme.addEventListener('click', () => setTheme(swTheme.getAttribute('aria-checked') !== 'true', swTheme));
+  swLines.forEach(b => b.addEventListener('click', () => setLines(b.getAttribute('aria-checked') !== 'true')));
+  swTheme.forEach(b => b.addEventListener('click', () => setTheme(b.getAttribute('aria-checked') !== 'true', b)));
   setLines(store.get('lines') !== '0');
   setTheme(document.documentElement.dataset.theme === 'light');
 

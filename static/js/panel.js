@@ -381,10 +381,15 @@ window.PortPanel = (function () {
   }
 
   el.body.addEventListener('pointermove', e => {
+    if (e.pointerType === 'touch') return;   // touch: a tap shows the card (below)
     const t = e.target.closest('.berth-plot [data-i]');
     if (t) showTip(t, e.clientX, e.clientY); else if (tipFor !== null) hideTip();
   });
-  el.body.addEventListener('pointerleave', hideTip);
+  el.body.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch') hideTip(); });
+  el.body.addEventListener('click', e => {
+    const t = e.target.closest('.berth-plot [data-i]');
+    if (t) showTip(t, e.clientX, e.clientY); else if (tipFor !== null) hideTip();
+  });
   el.body.addEventListener('focusin', e => {
     const t = e.target.closest('.berth-plot [data-i]');
     if (!t) return;

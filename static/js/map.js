@@ -29,6 +29,7 @@
   let highlight = null, hovered = null; // from the sidebar: a group of codes, and one hovered code
   const SITE_SPAN = 5;                  // degrees shown around a clicked port
   const STACK_PX = 18, STACK_GAP = 20;  // ports closer than this on screen are stacked in a column
+  const STACK_PX_PHONE = 30;            // a phone has less room for names side by side: stack sooner
   const TILT = 55, PERSPECTIVE = 1800;  // camera when zoomed to a port: tilt (deg) and perspective depth (px)
   const ORBIT_DEG_PER_S = 3;            // how fast the tilted camera circles the port
 
@@ -109,15 +110,26 @@
       ? 0 : s.offsetLeft + s.offsetWidth;
   }
 
+  // Phone: map shows between the app bar and the tab bar, and above the port card when one is open.
+  const PEEK_PX = 132;                  // port card (mobile.css .panel.open) plus its gap
+  const phone = () => window.innerWidth <= 760;
+  function vInsets() {
+    if (!phone()) return [0, 0];
+    const peek = document.body.classList.contains('panel-open') ? PEEK_PX : 0;
+    return [document.getElementById('appbar').offsetHeight, document.getElementById('tabbar').offsetHeight + peek];
+  }
+
   function fitTransform(bounds, pad) {
     // bounds: [[minLng, minLat], [maxLng, maxLat]]
     const a = projection(bounds[0]), b = projection(bounds[1]);
     const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]);
     const y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]);
     const left = sideInset(), w = width - panelWidth() - left;
-    const k = Math.min((w - pad * 2) / (x1 - x0), (height - pad * 2) / (y1 - y0));
+    const [top, bottom] = vInsets(), h = height - top - bottom;
+    if (phone()) pad = Math.min(pad, 16);
+    const k = Math.min((w - pad * 2) / (x1 - x0), (h - pad * 2) / (y1 - y0));
     return d3.zoomIdentity
-      .translate(left + w / 2, height / 2)
+      .translate(left + w / 2, top + h / 2)
       .scale(k)
       .translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
   }
@@ -127,6 +139,8 @@
   function homeView() {
     const pts = network.ports.map(p => [p.lng, p.lat]);
     const lng = d3.extent(pts, d => d[0]), lat = d3.extent(pts, d => d[1]);
+    // Phone: a narrow screen, so just the ports (all of India would leave them tiny).
+    if (phone()) return fitTransform([[lng[0] - 0.5, lat[0] - 1], [lng[1] + 0.5, lat[1] + 1]], 16);
     return fitTransform([
       [Math.min(lng[0] - 2, INDIA_BOUNDS[0][0]), Math.min(lat[0] - 1.5, INDIA_BOUNDS[0][1])],
       [Math.max(lng[1] + 4, INDIA_BOUNDS[1][0]), Math.max(lat[1] + 5, INDIA_BOUNDS[1][1])],
@@ -150,7 +164,10 @@
 
   // Camera settings: tilted and centred on the visible map when zoomed to a port.
   let tiltPref = TILT;                  // the user can change the tilt by dragging; kept between ports
-  const camFocus = () => ({ tilt: tiltPref, ox: sideInset() + (width - panelWidth() - sideInset()) / 2, oy: height / 2 });
+  const camFocus = () => {
+    const [top, bottom] = vInsets();
+    return { tilt: tiltPref, ox: sideInset() + (width - panelWidth() - sideInset()) / 2, oy: top + (height - top - bottom) / 2 };
+  };
   const zoomHint = document.getElementById('zoom-hint');
 
   // ── turning the zoomed-in map ─────────────────────────
@@ -270,7 +287,7 @@
       groups = [];
       network.ports.forEach(p => {
         const [x, y] = screen(p.lng, p.lat);
-        const g = groups.find(g => Math.hypot(g.x - x, g.y - y) < STACK_PX);
+        const g = groups.find(g => Math.hypot(g.x - x, g.y - y) < (phone() && !focused ? STACK_PX_PHONE : STACK_PX));
         if (g) g.ports.push(p); else groups.push({ x, y, ports: [p] });
       });
       stacks = groups.map(g => g.ports);
@@ -579,7 +596,9 @@
     const hoW = focused ? 0 : d3.max(gMarks.selectAll('g.ho-mark text').nodes(), textWidth) || 0;
     taken.push([ho[0] - 18 - hoW, ho[1] - 14, ho[0] + 8, ho[1] + 18]);    // head office + its label
     // Page furniture drawn over the map: logo block, clock, zoom hint.
-    document.querySelectorAll('#side, .clock, #zoom-hint:not([hidden]), #fleet-key:not([hidden]), #rot-ctl:not([hidden]), #support').forEach(n => {
+    // On a phone the sidebar is the Locations page (off the map); the bars and port card are on it.
+    const furniture = phone() ? '#appbar, #tabbar, body:not(.m-port) #panel.open' : '#side, #support';
+    document.querySelectorAll(furniture + ', .clock, #zoom-hint:not([hidden]), #fleet-key:not([hidden]), #rot-ctl:not([hidden])').forEach(n => {
       const r = n.getBoundingClientRect();
       taken.push([r.left - 6, r.top - 6, r.right + 6, r.bottom + 6]);
     });
@@ -612,6 +631,11 @@
       const prev = lastSpot.get(d.p.code);
       if (prev && (hasSub || !prev[1])) tries.unshift(prev);   // sticky: keep last time's spot if still free
       let pick = tries.find(([i, s]) => free(box(i, s)));
+      if (!pick && phone()) {           // phone: no free spot, so no name, rather than one on top of another
+        lastSpot.delete(d.p.code);
+        name.attr('visibility', 'hidden'); sub.attr('visibility', 'hidden'); leader.attr('visibility', 'hidden');
+        return;
+      }
       if (!pick) {                      // crowded: least overlap, nearest first
         let best = Infinity;
         SPOTS.forEach((_, i) => {
@@ -677,7 +701,11 @@
     startOrbit();
   }
   // Stays zoomed (and orbiting) until double-click or Esc; re-centres on the wider map.
-  window.PortPanel.onClose = () => { drawOverlay(); go(currentView(), 700, focused ? camFocus() : {}); };
+  // On a phone, closing the port card goes back to the overview (there is no double-click there).
+  window.PortPanel.onClose = () => {
+    if (phone() && focused) { reset(900); return; }
+    drawOverlay(); go(currentView(), 700, focused ? camFocus() : {});
+  };
 
   // What the sidebar can do to the map.
   window.PortMap = {

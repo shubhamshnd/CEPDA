@@ -68,6 +68,21 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/manifest.webmanifest")
+def manifest():
+    """Lets phones install the dashboard to the home screen as a full-screen app."""
+    icon = lambda n: {"src": url_for("static", filename=f"img/icon-{n}.png"), "sizes": f"{n}x{n}",
+                      "type": "image/png", "purpose": "any maskable"}
+    resp = jsonify({
+        "name": "JSW Infrastructure Port network", "short_name": "JSW Ports",
+        "start_url": url_for("index"), "scope": url_for("index"), "display": "standalone",
+        "orientation": "portrait", "background_color": "#08122A", "theme_color": "#08122A",
+        "icons": [icon(192), icon(512)],
+    })
+    resp.mimetype = "application/manifest+json"
+    return resp
+
+
 @app.route("/api/network")
 def network():
     """Everything the map needs: head office, ports with a light pulse."""

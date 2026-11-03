@@ -7,6 +7,14 @@ try { const t = localStorage.getItem('theme'); if (t) document.documentElement.d
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>JSW Infrastructure | Port network</title>
 <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+<!-- installable on phones: Add to Home Screen opens it full screen like an app -->
+<link rel="manifest" href="{{ url_for('manifest') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+<meta name="theme-color" content="#08122A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="JSW Ports">
 <link rel="preload" href="{{ url_for('static', filename='fonts/barlow-400.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
@@ -14,6 +22,11 @@ try { const t = localStorage.getItem('theme'); if (t) document.documentElement.d
 <body>
 
 <main id="stage">
+  <!-- phone only: app bar on top, tab bar at the bottom (mobile.js) -->
+  <header id="appbar" class="appbar">
+    <img class="app-logo logo-on-dark" src="{{ url_for('static', filename='img/jsw-logo-white.png') }}" alt="JSW Infrastructure">
+    <img class="app-logo logo-on-light" src="{{ url_for('static', filename='img/jsw-logo-black.png') }}" alt="JSW Infrastructure">
+  </header>
   <svg id="map" role="img" aria-label="Map of JSW Infrastructure ports and terminals in India and the UAE, linked to the Mumbai head office"></svg>
 
   <aside id="side" class="side" aria-label="JSW Infrastructure at a glance">
@@ -23,8 +36,8 @@ try { const t = localStorage.getItem('theme'); if (t) document.documentElement.d
     </div>
     <div id="side-body" class="side-body"><p class="side-tag">Loading locations</p></div>
     <div class="side-foot">
-      <button type="button" class="switch" id="sw-lines" role="switch" aria-checked="true"><i></i>Show lines</button>
-      <button type="button" class="theme-toggle" id="sw-theme" role="switch" aria-checked="false"
+      <button type="button" class="switch" id="sw-lines" data-sw="lines" role="switch" aria-checked="true"><i></i>Show lines</button>
+      <button type="button" class="theme-toggle" id="sw-theme" data-sw="theme" role="switch" aria-checked="false"
               aria-label="Light theme" title="Switch between dark and light">
         <span class="tt-thumb" aria-hidden="true"></span>
         <svg class="tt-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" fill="currentColor"/></svg>
@@ -64,6 +77,38 @@ try { const t = localStorage.getItem('theme'); if (t) document.documentElement.d
 
 
   <div id="map-error" class="map-error" hidden></div>
+
+  <section id="m-more" class="m-page" aria-label="Settings">
+    <h2 class="m-title">Settings</h2>
+    <div class="m-group">
+      <div class="m-row"><span>Theme</span>
+        <button type="button" class="theme-toggle" data-sw="theme" role="switch" aria-checked="false"
+              aria-label="Light theme" title="Switch between dark and light">
+        <span class="tt-thumb" aria-hidden="true"></span>
+        <svg class="tt-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" fill="currentColor"/></svg>
+        <svg class="tt-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      </div>
+      <div class="m-row"><span>Lines to head office</span>
+        <button type="button" class="switch" data-sw="lines" role="switch" aria-checked="true" aria-label="Show lines to head office"><i></i></button>
+      </div>
+    </div>
+    <div class="m-group">
+      <button type="button" id="m-install" class="m-row" hidden><span>Install app</span><span class="m-chev" aria-hidden="true">›</span></button>
+      <a class="m-row" href="mailto:shubham.shinde@jsw.in?subject=Port%20network%20dashboard%20support"><span>Email support</span><span class="m-chev" aria-hidden="true">›</span></a>
+    </div>
+    <p id="m-ios-hint" class="m-note" hidden>To install on iPhone: tap Share, then Add to Home Screen.</p>
+    <p class="m-note">Developed in-house by the <b>JSW Infra IT &amp; Digital</b> team</p>
+  </section>
+
+  <nav id="tabbar" class="tabbar" aria-label="Sections">
+    <button type="button" data-tab="map" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5V4l-6 2.5L9 4Zm0 0v13m6-10.5v13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>Map</button>
+    <button type="button" data-tab="list">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.3" fill="currentColor"/></svg>Locations</button>
+    <button type="button" data-tab="more">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10m4 0h2M4 17h2m4 0h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="8" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>Settings</button>
+  </nav>
 </main>
 
 <aside id="panel" class="panel" aria-hidden="true" aria-labelledby="panel-title" tabindex="-1">
@@ -74,6 +119,10 @@ try { const t = localStorage.getItem('theme'); if (t) document.documentElement.d
         <h2 id="panel-title">Port</h2>
         <p id="panel-region"></p>
       </div>
+      <button type="button" id="panel-back" class="panel-back" aria-label="Back to map">
+        <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M12.5 4 6.5 10l6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <span class="peek-more" aria-hidden="true">Details ›</span>
       <button type="button" id="panel-close" class="panel-close" aria-label="Close summary">
         <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       </button>
@@ -96,5 +145,6 @@ try { const t = localStorage.getItem('theme'); if (t) document.documentElement.d
 <script src="{{ url_for('static', filename='js/panel.js') }}"></script>
 <script src="{{ url_for('static', filename='js/side.js') }}"></script>
 <script src="{{ url_for('static', filename='js/map.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mobile.js') }}"></script>
 </body>
 </html>
