@@ -3,7 +3,7 @@
    tapping the card opens the details page. The phone's back gesture steps back
    (details -> card, Locations/Settings -> map). Desktop uses none of this. */
 (function () {
-  const mq = window.matchMedia('(max-width: 760px)');
+  const mq = window.matchMedia('(max-width: 760px), (max-height: 500px) and (pointer: coarse), (max-width: 1100px) and (orientation: portrait) and (pointer: coarse)');   // = app.css, map.js
   const body = document.body, panel = document.getElementById('panel');
   const tabs = document.querySelectorAll('#tabbar [data-tab]');
   const PAGES = { list: 'm-list', more: 'm-more', port: 'm-port' };
@@ -39,7 +39,7 @@
   // Card closed (its X): nothing left to show a details page for.
   new MutationObserver(() => { if (!panel.classList.contains('open') && page === 'port') go('map'); })
     .observe(panel, { attributes: true, attributeFilter: ['class'] });
-  // Rotated to a wide screen: desktop layout, no phone pages.
+  // Window grown to desktop size: desktop layout, no phone pages.
   mq.addEventListener('change', () => { if (!mq.matches && page !== 'map') go('map'); });
 
   // ── install to the home screen ──

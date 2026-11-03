@@ -106,24 +106,29 @@
     return [p.x / w, p.y / w];
   };
 
+  // App layout: phones, either way up. Same query as app.css and mobile.js.
+  const appMq = window.matchMedia('(max-width: 760px), (max-height: 500px) and (pointer: coarse), (max-width: 1100px) and (orientation: portrait) and (pointer: coarse)');
+  const phone = () => appMq.matches;
+  const sideways = () => phone() && window.innerWidth > window.innerHeight;   // card bottom right, map beside it
+
   function panelWidth() {
-    return document.body.classList.contains('panel-open') && window.innerWidth > 760
-      ? document.getElementById('panel').offsetWidth : 0;
+    if (!document.body.classList.contains('panel-open')) return 0;
+    if (sideways()) return Math.min(400, width * 0.46) + 12;               // app.css landscape .panel
+    return phone() ? 0 : document.getElementById('panel').offsetWidth;
   }
 
   // Room the sidebar takes on the left. It slides away while the port panel is open.
   function sideInset() {
     const s = document.getElementById('side');
-    return document.body.classList.contains('panel-open') || window.innerWidth <= 760
+    return document.body.classList.contains('panel-open') || phone()
       ? 0 : s.offsetLeft + s.offsetWidth;
   }
 
   // Phone: map shows between the app bar and the tab bar, and above the port card when one is open.
-  const PEEK_PX = 132;                  // port card (mobile.css .panel.open) plus its gap
-  const phone = () => window.innerWidth <= 760;
+  const PEEK_PX = 132;                  // port card (app.css .panel.open) plus its gap
   function vInsets() {
     if (!phone()) return [0, 0];
-    const peek = document.body.classList.contains('panel-open') ? PEEK_PX : 0;
+    const peek = document.body.classList.contains('panel-open') && !sideways() ? PEEK_PX : 0;
     return [document.getElementById('appbar').offsetHeight, document.getElementById('tabbar').offsetHeight + peek];
   }
 

@@ -76,7 +76,7 @@ def manifest():
     resp = jsonify({
         "name": "JSW Infrastructure Port network", "short_name": "JSW Ports",
         "start_url": url_for("index"), "scope": url_for("index"), "display": "standalone",
-        "orientation": "portrait", "background_color": "#08122A", "theme_color": "#08122A",
+        "background_color": "#08122A", "theme_color": "#08122A",
         "icons": [icon(192), icon(512)],
     })
     resp.mimetype = "application/manifest+json"
