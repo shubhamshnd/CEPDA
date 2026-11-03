@@ -42,6 +42,14 @@
   // Window grown to desktop size: desktop layout, no phone pages.
   mq.addEventListener('change', () => { if (!mq.matches && page !== 'map') go('map'); });
 
+  // iOS can leave the page scrolled a little after a rotation (the Safari toolbar): buttons
+  // then draw in one place and take taps a few pixels away. Nothing on the page scrolls
+  // (lists scroll inside their own boxes), so any page scroll is put straight back.
+  const unscroll = () => { if (window.scrollX || window.scrollY) window.scrollTo(0, 0); };
+  window.addEventListener('scroll', unscroll);
+  window.addEventListener('resize', unscroll);
+  window.addEventListener('orientationchange', () => setTimeout(unscroll, 300));   // iOS settles late
+
   // ── install to the home screen ──
   const installBtn = document.getElementById('m-install');
   const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;

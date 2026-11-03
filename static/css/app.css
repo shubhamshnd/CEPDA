@@ -96,6 +96,7 @@ body {
   color: var(--text);
   background: var(--sea);
   overflow: hidden;
+  position: fixed; inset: 0;            /* the page itself never scrolls; iOS otherwise can after a rotation */
   -webkit-font-smoothing: antialiased;
   font-variant-numeric: tabular-nums;
 }
