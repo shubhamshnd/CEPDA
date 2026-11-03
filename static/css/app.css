@@ -619,7 +619,7 @@ body.panel-open .support { right: calc(var(--panel-w) + 24px); }
 @media (pointer: coarse) { .zoom-hint { display: none; } }   /* no double-click or Esc on a touchscreen */
 
 /* Same query in map.js and mobile.js: narrow screens, and phones on their side. */
-@media (max-width: 760px), (max-height: 500px) and (pointer: coarse), (max-width: 1100px) and (orientation: portrait) and (pointer: coarse) {
+@media (max-width: 760px), (max-width: 1100px) and (orientation: portrait) and (pointer: coarse) {
   :root { --panel-w: 100%; --bar-h: 54px; --tab-h: 60px; --ease: cubic-bezier(.2, .7, .2, 1); }
   body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
   /* Safari clips a tilted svg to its box: give the turning map room past every screen edge. */

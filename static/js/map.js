@@ -107,7 +107,7 @@
   };
 
   // App layout: phones, either way up. Same query as app.css and mobile.js.
-  const appMq = window.matchMedia('(max-width: 760px), (max-height: 500px) and (pointer: coarse), (max-width: 1100px) and (orientation: portrait) and (pointer: coarse)');
+  const appMq = window.matchMedia('(max-width: 760px), (max-width: 1100px) and (orientation: portrait) and (pointer: coarse)');
   const phone = () => appMq.matches;
   const sideways = () => phone() && window.innerWidth > window.innerHeight;   // card bottom right, map beside it
 
@@ -811,7 +811,12 @@
     window.SidePanel.render(network);  // before resize: the map is fitted beside the sidebar
     resize();
     if (!reduceMotion) requestAnimationFrame(animate);
-    window.addEventListener('resize', resize);
+    // Refit when the map itself changes size. iOS fires window 'resize' on rotation
+    // before the new height is laid out, which fitted the map to the old portrait height.
+    new ResizeObserver(() => {
+      const r = svg.node().getBoundingClientRect();
+      if (r.width !== width || r.height !== height) resize();
+    }).observe(svg.node());
     rotBtn.onclick = () => setAuto(!autoRotate);
     setAuto(autoRotate);                // button label matches the start state (off under Reduce Motion)
     fleetKey.onclick = () => setFleetMode(!fleetMode);

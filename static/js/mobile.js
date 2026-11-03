@@ -3,7 +3,7 @@
    tapping the card opens the details page. The phone's back gesture steps back
    (details -> card, Locations/Settings -> map). Desktop uses none of this. */
 (function () {
-  const mq = window.matchMedia('(max-width: 760px), (max-height: 500px) and (pointer: coarse), (max-width: 1100px) and (orientation: portrait) and (pointer: coarse)');   // = app.css, map.js
+  const mq = window.matchMedia('(max-width: 760px), (max-width: 1100px) and (orientation: portrait) and (pointer: coarse)');   // = app.css, map.js
   const body = document.body, panel = document.getElementById('panel');
   const tabs = document.querySelectorAll('#tabbar [data-tab]');
   const PAGES = { list: 'm-list', more: 'm-more', port: 'm-port' };
