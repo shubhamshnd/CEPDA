@@ -126,8 +126,9 @@
   // Phone: map shows between the app bar and the tab bar, and above the port card when one is open.
   const PEEK_PX = 132;                  // port card (app.css .panel.open) plus its gap
   function vInsets() {
-    if (!phone()) return [0, 0];
-    const peek = document.body.classList.contains('panel-open') ? PEEK_PX : 0;
+    const open = document.body.classList.contains('panel-open');
+    if (!phone()) return [open && cramped() ? 64 : 0, 0];   // short screen: the port's name sits below the Prototype badge
+    const peek = open ? PEEK_PX : 0;
     return [document.getElementById('appbar').offsetHeight, document.getElementById('tabbar').offsetHeight + peek];
   }
 
@@ -608,7 +609,7 @@
     // Page furniture drawn over the map: logo block, clock, zoom hint.
     // On a phone the sidebar is the Locations page (off the map); the bars and port card are on it.
     const furniture = phone() ? '#appbar, #tabbar, body:not(.m-port) #panel.open' : '#side, #support';
-    document.querySelectorAll(furniture + ', .clock, #zoom-hint:not([hidden]), #fleet-key:not([hidden]), #rot-ctl:not([hidden])').forEach(n => {
+    document.querySelectorAll(furniture + ', .clock, .proto, #zoom-hint:not([hidden]), #fleet-key:not([hidden]), #rot-ctl:not([hidden])').forEach(n => {
       const r = n.getBoundingClientRect();
       taken.push([r.left - 6, r.top - 6, r.right + 6, r.bottom + 6]);
     });

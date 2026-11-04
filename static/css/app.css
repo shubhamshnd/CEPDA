@@ -341,17 +341,21 @@ body.panel-open .clock { right: calc(var(--panel-w) + 24px); }
 body.panel-open .zoom-hint { right: calc(var(--panel-w) + 70px); }
 #clock-time { display: block; font-family: var(--font-fig); font-size: 30px; font-weight: 500; line-height: 1; }
 #clock-meta { display: block; color: var(--text-2); font-size: 13px; margin-top: 6px; }
-.clock-top { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
-/* Blinks so nobody takes the dashboard for the finished product. Navy on amber reads in both themes. */
+/* Blinks so nobody takes the dashboard for the finished product. Navy on amber reads in both themes.
+   Top centre; on a short screen it stays clear of the sidebar (450px) and, with a port open, of the time (181px). */
 .proto {
+  position: absolute; z-index: 6; top: calc(20px + var(--safe-t)); left: max(50%, 450px); transform: translateX(-50%);
+  pointer-events: none; transition: left .35s ease;
   display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px 7px 12px; border-radius: 999px;
   background: var(--amber); color: #0D1A33; font-size: 16px; font-weight: 700; line-height: 1.25; white-space: nowrap;
   letter-spacing: .08em; text-transform: uppercase;
   box-shadow: 0 0 18px 4px rgba(227, 176, 75, .75);
   animation: proto-blink 1.6s ease-in-out infinite;
 }
+body.panel-open .proto { left: min((100% - var(--panel-w)) / 2, 100% - var(--panel-w) - 181px); }
 .proto svg { width: 20px; height: 20px; }
 @keyframes proto-blink { 50% { opacity: .45; box-shadow: none; } }
+@media (max-height: 499px) { body.panel-open #clock-meta { display: none; } }   /* short screen: leaves the port's name clear */
 
 .legend {
   position: absolute; left: 24px; bottom: calc(24px + var(--safe-b));
@@ -646,6 +650,7 @@ body.panel-open .support { right: calc(var(--panel-w) + 24px); }
   .clock, body.panel-open .clock { z-index: 14; top: calc(var(--safe-t) + 9px); right: 16px; }
   #clock-time { font-size: 22px; }
   #clock-meta { font-size: 11px; margin-top: 3px; }
+  .proto, body.panel-open .proto { z-index: 14; top: calc(var(--safe-t) + 16px); left: 50%; }
   .proto { gap: 5px; padding: 3px 10px 3px 7px; font-size: 13px; letter-spacing: .05em; box-shadow: 0 0 10px 2px rgba(227, 176, 75, .75); }
   .proto svg { width: 16px; height: 16px; }
 
@@ -764,6 +769,6 @@ body.panel-open .support { right: calc(var(--panel-w) + 24px); }
 @media (prefers-reduced-motion: reduce) {
   .arc.flow, .port-mark .ring { animation: none; }
   .port-mark .ring { opacity: 0; }
-  .panel, .clock, .panel-hero img, .panel-body, .arcs, .tt-thumb, .theme-toggle svg, .side, .m-page, .panel-hero { transition: none; }
+  .panel, .clock, .proto, .panel-hero img, .panel-body, .arcs, .tt-thumb, .theme-toggle svg, .side, .m-page, .panel-hero { transition: none; }
   .now-in, .proto { animation: none; }
 }
