@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Data sources | JSW Infrastructure</title>
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
+<style>
+  :root { --bg:#08122A; --surface:#0D1A33; --rule:#22365E; --text:#E6ECF5; --text-2:#A7B6CF; --text-3:#7186A6;
+          --good:#5CCB9C; --warn:#F3E3A0; --bad:#EF8A63; --link:#36C3FF; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 'Barlow','Segoe UI',system-ui,sans-serif; }
+  main { max-width:1200px; margin:0 auto; padding:32px 20px 64px; }
+  h1 { font:600 28px 'Barlow Condensed','Arial Narrow',sans-serif; margin:0 0 4px; }
+  h2 { font:600 20px 'Barlow Condensed','Arial Narrow',sans-serif; margin:40px 0 4px; }
+  p.lead, p.note { color:var(--text-2); margin:0 0 16px; }
+  a { color:var(--link); }
+  table { width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--rule); }
+  th, td { text-align:left; vertical-align:top; padding:10px 12px; border-top:1px solid var(--rule); }
+  th { color:var(--text-3); font-weight:500; font-size:13px; text-transform:uppercase; letter-spacing:.04em; border-top:0; }
+  td small { color:var(--text-3); display:block; }
+  code, pre { font:13px/1.45 ui-monospace,Consolas,monospace; }
+  code { background:#15264A; padding:1px 5px; border-radius:3px; word-break:break-all; }
+  pre { background:#060E22; border:1px solid var(--rule); padding:12px; overflow:auto; max-height:480px; margin:8px 0 0; }
+  .st { font-weight:600; white-space:nowrap; }
+  .st::before { content:''; display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background:currentColor; }
+  .ok { color:var(--good); } .warn { color:var(--warn); } .bad { color:var(--bad); } .off { color:var(--text-3); }
+  ul.errs { margin:6px 0 0; padding-left:18px; color:var(--bad); font-size:13px; }
+  details summary { cursor:pointer; color:var(--link); }
+  .banner { border:1px solid var(--bad); color:var(--bad); padding:10px 12px; margin:0 0 16px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Data sources</h1>
+  <p class="lead">Where each location's dashboard data comes from, and whether it is arriving.</p>
+
+  <h2>Database (mirrored views)</h2>
+  <p class="note">Read directly from the viewmirror database.</p>
+  <table>
+    <tr><th>Location</th><th>Schema</th><th>Status</th><th>Last synced</th><th>Today</th></tr>
+    {% for l in db %}
+    <tr>
+      <td>{{ l.name }}<small>{{ l.code }}</small></td>
+      <td><code>{{ l.schema }}</code></td>
+      <td>
+        {% if l.ok %}<span class="st ok">OK</span>
+        {% elif l.error %}<span class="st bad">Unreachable</span><ul class="errs"><li>{{ l.error }}</li></ul>
+        {% else %}<span class="st warn">Partial</span><ul class="errs">{% for e in l.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </td>
+      <td>{{ l.last_synced or '—' }}</td>
+      <td>
+        {% if l.pulse and l.pulse.ok %}{{ '{:,.0f}'.format(l.pulse.today or 0) }}<small>{{ l.pulse.working }} working, {{ l.pulse.inbound }} inbound</small>
+        {% else %}—{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <h2>Feeds (pushed JSON)</h2>
+  <p class="note">
+    Each location <code>POST</code>s one JSON document to its endpoint at least every 5 minutes, with its key in the
+    <code>X-Feed-Key</code> header and <code>Content-Type: application/json</code>. Format:
+    <code>docs/port_feed/port_feed.schema.json</code>. Shown as stale after {{ stale_min }} minutes without a document.
+  </p>
+  {% if not feeds_enabled %}<p class="banner">Feeds are off: set <code>FEED_SECRET</code> in .env to generate keys and accept data.</p>{% endif %}
+  <table>
+    <tr><th>Location</th><th>Status</th><th>Endpoint and key</th><th>Sample JSON</th></tr>
+    {% for l in feeds %}
+    <tr>
+      <td>{{ l.name }}<small>{{ l.code }} · {{ l.feed or 'bulk' }}{% if l.status and l.status != 'Operational' %} · {{ l.status }}{% endif %}</small></td>
+      <td>
+        {% if l.state == 'live' %}<span class="st ok">Live</span>
+        {% elif l.state == 'stale' %}<span class="st warn">Stale</span>
+        {% else %}<span class="st off">No data yet</span>{% endif %}
+        {% if l.received_at %}
+          <small>received {{ l.received_at }} ({{ '%.0f'|format(l.age_min) }} min ago)</small>
+          <small>generated {{ l.generated_at }}</small>
+          <small><a href="{{ url_for('data_json', code=l.code, which='latest') }}">latest document</a></small>
+        {% endif %}
+      </td>
+      <td>
+        <code>{{ l.endpoint }}</code>
+        <small>key</small><code>{{ l.key or 'not set' }}</code>
+      </td>
+      <td>
+        <details>
+          <summary>View</summary>
+          <pre>{{ l.sample }}</pre>
+          <pre>curl -X POST "{{ l.endpoint }}" \
+  -H "Content-Type: application/json" \
+  -H "X-Feed-Key: {{ l.key or '<key>' }}" \
+  --data @{{ l.code }}_feed_sample.json</pre>
+        </details>
+        <small><a href="{{ url_for('data_json', code=l.code, which='sample') }}">download</a></small>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</main>
+</body>
+</html>

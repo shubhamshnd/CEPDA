@@ -6,6 +6,8 @@ Entries without a "schema" are drawn on the map but show no live data.
 "dashboard": "jnpa" reads PORTMAN2's jnpa_* liquid-terminal views (summary_jnpa.py);
 otherwise the schema holds PORTBIRD's vw_port_overview_* dry-bulk views (summary.py).
 "kind" is "port" for port concessions; everything else is a terminal.
+"feed": "container" marks terminals that send the container variant of the port feed
+(docs/port_feed); every other location without a schema sends the bulk variant.
 "image" is the panel banner; "berth_image" is the photo the berth layout boxes
 were drawn on (vessels are plotted over it).
 """
@@ -20,6 +22,14 @@ DATABASE_URL = os.environ["DATABASE_URL"]  # fail at startup, not on first query
 # Google Static Maps key: satellite view for locations without their own image.
 # Restrict it to your domain (HTTP referrer) in Google Cloud, it ships in page URLs.
 GOOGLE_MAPS_KEY = os.environ.get("GOOGLE_MAPS_KEY", "")
+
+# /data admin page (HTTP Basic). Unset = page disabled.
+ADMIN_ID = os.environ.get("ADMIN_ID", "")
+ADMIN_PASS = os.environ.get("ADMIN_PASS", "")
+# Ports without a schema POST their JSON to /api/feed/<code>; each port's key is
+# derived from this secret (shown on /data). Rotating it changes every key.
+FEED_SECRET = os.environ.get("FEED_SECRET", "")
+FEED_DIR = os.environ.get("FEED_DIR", os.path.join(os.path.dirname(__file__), "feeds"))
 
 # Where the arcs from every site converge.
 HEAD_OFFICE = {
@@ -56,7 +66,7 @@ LOCATIONS = [
     {"code": "MCT", "name": "Mangalore Coal Terminal", "region": "Panambur, Karnataka",
      "lat": 12.9250, "lng": 74.8070, "image": "img/mangalorecoal_drone.jpg"},
     {"code": "MCTL", "name": "Mangalore Container Terminal", "region": "Panambur, Karnataka",
-     "lat": 12.9270, "lng": 74.8100, "image": "img/mangalore-container-terminal_drone.jpg"},
+     "lat": 12.9270, "lng": 74.8100, "feed": "container", "image": "img/mangalore-container-terminal_drone.jpg"},
     {"code": "VOC", "name": "NCB III, VOC Port", "region": "Thoothukudi, Tamil Nadu",
      "lat": 8.7600, "lng": 78.2000},
     {"code": "EBT", "name": "Ennore Bulk Terminal", "region": "Kamarajar Port, Tamil Nadu",
@@ -70,7 +80,7 @@ LOCATIONS = [
     {"code": "JATADHAR", "kind": "port", "name": "Jatadhar Port", "region": "Jagatsinghpur, Odisha",
      "lat": 20.1800, "lng": 86.6200, "status": DEV},
     {"code": "KCT", "name": "Kolkata Container Terminal", "region": "Kolkata, West Bengal",
-     "lat": 22.5400, "lng": 88.3100, "status": DEV},
+     "lat": 22.5400, "lng": 88.3100, "status": DEV, "feed": "container"},
     # ── Overseas ──
     {"code": "FUJ", "name": "Fujairah Terminal", "region": "Fujairah, UAE",
      "lat": 25.1700, "lng": 56.3600, "overseas": True, "image": "img/jsw meltc.webp"},
